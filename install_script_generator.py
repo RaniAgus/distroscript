@@ -262,7 +262,7 @@ class FlatpakPackage(Package):
         packages = self.config.get('packages', [self.name])
         commands = []
         for pkg in packages:
-            commands.append(f'flatpak install -y {pkg}')
+            commands.append(f'flatpak install -y flathub {pkg}')
         return commands
 
     def is_available_for_os(self, os_type: str) -> bool:
@@ -445,7 +445,10 @@ class InstallScriptGenerator:
         # Write scripts first
         self._write_scripts(os_type)
 
-        commands = []
+        commands = []  # list of {'cmd': str, 'package': Package or None}
+        install_cmds_to_merge = []  # list of {'cmd': str, 'package': Package}
+        pre_to_prepend = []  # list of str
+        posts_to_append = []  # list of str
         installed = set()
 
         def install_package(package_name: str):
@@ -464,7 +467,7 @@ class InstallScriptGenerator:
                         install_package(dep)
                     else:
                         # External dependency check
-                        commands.append(f'which {dep} || {{ echo "Warning: {dep} not found"; exit 1; }}')
+                        commands.append({'cmd': f'which {dep} || {{ echo "Warning: {dep} not found"; exit 1; }}', 'package': None})
                 elif isinstance(dep, dict):
                     # Inline package definition
                     dep_config = dep
@@ -475,26 +478,48 @@ class InstallScriptGenerator:
                     if temp_package.is_available_for_os(os_type):
                         # Install inline
                         pre_cmds = temp_package.generate_pre_install_commands()
-                        commands.extend(pre_cmds)
+                        for cmd in pre_cmds:
+                            commands.append({'cmd': cmd, 'package': None})
                         install_cmds = temp_package.generate_install_commands(os_type)
-                        commands.extend(install_cmds)
+                        for cmd in install_cmds:
+                            commands.append({'cmd': cmd, 'package': temp_package})
                         post_cmds = temp_package.generate_post_install_commands()
-                        commands.extend(post_cmds)
+                        for cmd in post_cmds:
+                            commands.append({'cmd': cmd, 'package': None})
 
             # Pre-install scripts
             pre_cmds = package.generate_pre_install_commands()
             if pre_cmds:
-                commands.extend(pre_cmds)
+                if 'depends_on' in package.config:
+                    # Has explicit dependencies, append pre immediately
+                    for cmd in pre_cmds:
+                        commands.append({'cmd': cmd, 'package': None})
+                else:
+                    # No explicit dependencies, collect pre to prepend before merged installs
+                    pre_to_prepend.extend(pre_cmds)
 
             # Install commands
             install_cmds = package.generate_install_commands(os_type)
             if install_cmds:
-                commands.extend(install_cmds)
+                if 'depends_on' in package.config:
+                    # Package has explicit dependencies, don't merge its install
+                    for cmd in install_cmds:
+                        commands.append({'cmd': cmd, 'package': package})
+                else:
+                    # No explicit dependencies, collect for merging
+                    for cmd in install_cmds:
+                        install_cmds_to_merge.append({'cmd': cmd, 'package': package})
 
             # Post-install scripts
             post_cmds = package.generate_post_install_commands()
             if post_cmds:
-                commands.extend(post_cmds)
+                if 'depends_on' in package.config:
+                    # Has dependencies, append posts immediately
+                    for cmd in post_cmds:
+                        commands.append({'cmd': cmd, 'package': None})
+                else:
+                    # No dependencies, collect posts to append after merged installs
+                    posts_to_append.extend(post_cmds)
 
             installed.add(package_name)
 
@@ -503,7 +528,70 @@ class InstallScriptGenerator:
             if self._get_package_for_os(name, os_type):
                 install_package(name)
 
-        return '\n'.join(commands)
+        # Merge the collected install commands for packages without dependencies
+        merged_installs = merge_consecutive_commands(install_cmds_to_merge)
+        merged_dicts = [{'cmd': cmd, 'package': None} for cmd in merged_installs]
+
+        # Combine: collected pre for no-dep, merged installs, separate commands, collected posts
+        final_list = [{'cmd': cmd, 'package': None} for cmd in pre_to_prepend] + merged_dicts + commands + [{'cmd': cmd, 'package': None} for cmd in posts_to_append]
+
+        # Extract commands
+        final_commands = [item['cmd'] for item in final_list]
+        return '\n'.join(final_commands)
+
+
+def merge_consecutive_commands(commands_with_meta: List[Dict[str, Any]]) -> List[str]:
+    """Merge all commands of the same type into single commands"""
+    merged = {}
+    for item in commands_with_meta:
+        cmd = item['cmd']
+        if cmd.startswith('sudo dnf install -y '):
+            pkg = cmd[len('sudo dnf install -y '):]
+            key = 'sudo dnf install -y'
+            if key not in merged:
+                merged[key] = []
+            merged[key].append(pkg)
+        elif cmd.startswith('sudo apt install -y '):
+            pkg = cmd[len('sudo apt install -y '):]
+            key = 'sudo apt install -y'
+            if key not in merged:
+                merged[key] = []
+            merged[key].append(pkg)
+        elif cmd.startswith('sudo snap install '):
+            # For snap, handle flags
+            parts = cmd.split()
+            if len(parts) >= 4 and parts[0] == 'sudo' and parts[1] == 'snap' and parts[2] == 'install':
+                pkg = parts[3]
+                flag = ' ' + ' '.join(parts[4:]) if len(parts) > 4 else ''
+                key = f'sudo snap install{flag}'
+                if key not in merged:
+                    merged[key] = []
+                merged[key].append(pkg)
+            else:
+                merged[cmd] = ['']
+        elif cmd.startswith('flatpak install -y flathub '):
+            pkg = cmd[len('flatpak install -y flathub '):]
+            key = 'flatpak install -y flathub'
+            if key not in merged:
+                merged[key] = []
+            merged[key].append(pkg)
+        elif cmd.startswith('pip3 install '):
+            pkg = cmd[len('pip3 install '):]
+            key = 'pip3 install'
+            if key not in merged:
+                merged[key] = []
+            merged[key].append(pkg)
+        else:
+            # For other commands, don't merge
+            merged[cmd] = ['']
+
+    result = []
+    for key, packages in merged.items():
+        if packages == ['']:
+            result.append(key)
+        else:
+            result.append(f"{key} {' '.join(packages)}")
+    return result
 
 
 def main():

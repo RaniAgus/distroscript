@@ -23,6 +23,44 @@ dnf-automatic:
           [commands]
           apply_updates=True
 
+dnf5-plugins: [dnf]
+
+# Libraries
+
+c:
+  - type: dnf
+    packages: [make, cmake, gcc, gcc-c++, gdb, entr, clang-tidy, clang-format]
+  - type: apt
+    packages: [build-essential, gdb, entr, clang-tidy, clang-format]
+
+
+# CLI Tools
+
+htop: [dnf, apt]
+
+jq: [dnf, apt]
+
+7z:
+  - type: dnf
+    packages: [p7zip]
+  - type: apt
+    packages: [p7zip-full]
+
+stow: [dnf]
+
+tree: [dnf, apt]
+
+xxd: [dnf, apt]
+
+git:
+  - type: dnf
+    post_install: |
+      git config --global init.defaultBranch main
+      git config --global user.email "aguseranieri@gmail.com"
+      git config --global user.name "Agustin Ranieri"
+      git config --global credential.username "RaniAgus"
+      git config --global gpg.format ssh
+
 # Desktop Applications
 
 # dnf type translates into:
@@ -35,6 +73,8 @@ dnf-automatic:
 #   sudo apt install "$TEMP_FILE"
 #   rm "$TEMP_FILE"
 # }
+
+solaar: [dnf]
 
 chrome:
   - type: dnf
@@ -74,8 +114,7 @@ zoom:
 gh:
   - type: dnf
     depends_on:
-      - type: dnf
-        packages: [dnf5-plugins]
+      - dnf5-plugins
     repo:
       name: gh-cli
       file: https://cli.github.com/packages/rpm/gh-cli.repo
@@ -89,6 +128,8 @@ docker:
       - containerd.io
       - docker-buildx-plugin
       - docker-compose-plugin
+    depends_on:
+      - dnf5-plugins
     repo:
       file: https://download.docker.com/linux/fedora/docker-ce.repo
     post_install: |
@@ -130,35 +171,6 @@ postman: [snapd]
 
 spotify: [snapd]
 
-solaar: [dnf]
-
-# CLI Tools
-
-htop: [dnf, apt]
-
-jq: [dnf, apt]
-
-7z:
-  - type: dnf
-    packages: [p7zip]
-  - type: apt
-    packages: [p7zip-full]
-
-stow: [dnf]
-
-tree: [dnf, apt]
-
-xxd: [dnf, apt]
-
-git:
-  - type: dnf
-    post_install: |
-      git config --global init.defaultBranch main
-      git config --global user.email "aguseranieri@gmail.com"
-      git config --global user.name "Agustin Ranieri"
-      git config --global credential.username "RaniAgus"
-      git config --global gpg.format ssh
-
 # Type pip translates into:
 # pip install -U {{...packages}}
 
@@ -186,6 +198,28 @@ yt-dlp:
   - type: pip
     packages: ["yt-dlp[default]"]
 
+
+# Custom libraries
+
+cspec:
+  - type: github
+    repo: mumuki/cspec
+    install_script: |
+      make
+      sudo make install
+
+commons:
+  - type: github
+    repo: sisoputnfrba/so-commons-library
+    install_script: |
+      make
+      sudo make install
+
+doctest:
+  - type: file
+    url: https://raw.githubusercontent.com/doctest/doctest/v2.4.12/doctest/doctest.h
+    destination: /usr/local/include/doctest
+    sudo: true
 
 # "tarball" type translates into:
 # curl -fsSL "{{url}}" | {{sudo}} tar xvzC "{{destination}}"
@@ -252,40 +286,6 @@ zsh:
     post_install: |
       sh -c "$(wget https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -O -)"
       chsh -s $(which zsh)
-
-# Libraries
-
-c:
-  - type: dnf
-    packages: [make, cmake, gcc, gcc-c++, gdb, entr, clang-tidy, clang-format]
-  - type: apt
-    packages: [build-essential, gdb, entr, clang-tidy, clang-format]
-
-# Make translates into:
-# git clone {{repo}}
-# make -C <dir>
-# sudo make -C <dir> install
-# rm -rf <dir>
-
-cspec:
-  - type: github
-    repo: mumuki/cspec
-    install_script: |
-      make
-      sudo make install
-
-commons:
-  - type: github
-    repo: sisoputnfrba/so-commons-library
-    install_script: |
-      make
-      sudo make install
-
-doctest:
-  - type: file
-    url: https://raw.githubusercontent.com/doctest/doctest/v2.4.12/doctest/doctest.h
-    destination: /usr/local/include/doctest
-    sudo: true
 
 # Fonts
 
