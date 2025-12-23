@@ -1,0 +1,295 @@
+# Package managers
+
+snapd:
+  - apt
+  - type: dnf
+    post_install: |
+      sudo ln -s /var/lib/snapd/snap /snap
+
+pip:
+  - type: dnf
+    packages: [python3-pip]
+
+apt-transport-https: [apt]
+
+dnf-automatic:
+  - type: dnf
+    post_install:
+      # Se traduce en: echo -e "[commands]\napply_updates=True" | sudo tee /etc/dnf/automatic.conf
+      - type: tee
+        destination: /etc/dnf/automatic.conf
+        sudo: true
+        content: |
+          [commands]
+          apply_updates=True
+
+# Desktop Applications
+
+# dnf type translates into:
+# sudo dnf install -y {{...packages}}
+
+# deb type translates into this for ubuntu:
+# @for (package of packages) {
+#   TEMP_FILE=$(mktemp)
+#   curl -o "$TEMP_FILE" {{package}}
+#   sudo apt install "$TEMP_FILE"
+#   rm "$TEMP_FILE"
+# }
+
+chrome:
+  - type: dnf
+    packages: [https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm]
+  - type: deb
+    packages: [https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb]
+
+1password:
+  - type: dnf
+    packages: [https://downloads.1password.com/linux/rpm/stable/x86_64/1password-latest.rpm]
+    post_install:
+      - type: tee
+        destination: ~/.config/autostart/1password.desktop
+        content: |
+          [Desktop Entry]
+          Name=1Password
+          Exec=1password --silent %U
+          Terminal=false
+          Type=Application
+          Icon=1password
+          StartupWMClass=1Password
+          Comment=Password manager and secure wallet
+          MimeType=x-scheme-handler/onepassword;
+          Categories=Office;nano ~/.config/autostart/1password.desktop
+
+1password-cli:
+  - type: dnf
+    depends_on:
+      - 1password
+
+zoom:
+  - type: dnf
+    packages: [https://zoom.us/client/latest/zoom_x86_64.rpm]
+  - type: deb
+    packages: [https://zoom.us/client/latest/zoom_amd64.deb]
+
+gh:
+  - type: dnf
+    depends_on:
+      - type: dnf
+        packages: [dnf5-plugins]
+    repo:
+      name: gh-cli
+      file: https://cli.github.com/packages/rpm/gh-cli.repo
+
+docker:
+  - type: dnf
+    packages:
+      - docker
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    repo:
+      file: https://download.docker.com/linux/fedora/docker-ce.repo
+    post_install: |
+      sudo systemctl enable --now docker
+      sudo groupadd docker
+      sudo usemod -aG docker $USER
+
+kdenlive:
+  - type: flatpak
+    packages: [org.kde.kdenlive]
+
+pcsx2:
+  - type: flatpak
+    packages: [net.pcsx2.PCSX2]
+
+pdfarranger:
+  - type: flatpak
+    packages: [com.github.jeromerobert.pdfarranger]
+
+obs-studio:
+  - type: flatpak
+    packages: [com.obsproject.Studio]
+
+discord:
+  - type: flatpak
+    packages: [com.discordapp.Discord]
+
+drawing:
+  - type: flatpak
+    packages: [com.github.maoschanz.drawing]
+
+code:
+  - type: snapd
+    classic: true
+
+vlc: [snapd]
+
+postman: [snapd]
+
+spotify: [snapd]
+
+solaar: [dnf]
+
+# CLI Tools
+
+htop: [dnf, apt]
+
+jq: [dnf, apt]
+
+7z:
+  - type: dnf
+    packages: [p7zip]
+  - type: apt
+    packages: [p7zip-full]
+
+stow: [dnf]
+
+tree: [dnf, apt]
+
+xxd: [dnf, apt]
+
+git:
+  - type: dnf
+    post_install: |
+      git config --global init.defaultBranch main
+      git config --global user.email "aguseranieri@gmail.com"
+      git config --global user.name "Agustin Ranieri"
+      git config --global credential.username "RaniAgus"
+      git config --global gpg.format ssh
+
+# Type pip translates into:
+# pip install -U {{...packages}}
+
+kazam:
+  - type: pip
+    depends_on:
+      - c
+      - type: dnf
+        packages: [python3-wheel, zlib-devel]
+    post_install:
+      - type: tee
+        destination: ~/.local/share/applications/kazam.desktop
+        content: |
+          [Desktop Entry]
+          Name=Kazam
+          Comment=Screen recording tool
+          Exec=kazam
+          Icon=kazam
+          Terminal=false
+          Type=Application
+          Categories=AudioVideo;Recorder;
+          StartupNotify=true
+
+yt-dlp:
+  - type: pip
+    packages: ["yt-dlp[default]"]
+
+
+# "tarball" type translates into:
+# curl -fsSL "{{url}}" | {{sudo}} tar xvzC "{{destination}}"
+
+go:
+  - type: tarball
+    url: "https://go.dev/dl/$(curl -fsSL 'https://golang.org/VERSION?m=text' | head -n1).linux-amd64.tar.gz"
+    destination: /usr/local
+    sudo: true
+
+jetbrains-toolbox:
+  - type: tarball
+    url: $(curl -fsSL "https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release" | jq -r '.TBA[0].downloads.linux.link')
+    destination: /opt
+    sudo: true
+    post_install: |
+      /opt/jetbrains-toolbox-*/bin/jetbrains-toolbox
+    depends_on: [jq]
+
+rust:
+  - type: bash
+    script: |
+      curl https://sh.rustup.rs -sSf | sh
+
+sdkman:
+  - type: bash
+    script: |
+      curl -s "https://get.sdkman.io" | bash
+
+pseint:
+  - type: tarball
+    url: "https://downloads.sourceforge.net/project/pseint/20230517/pseint-l64-20230517.tgz"
+    destination: /opt
+    sudo: true
+
+steam:
+  - type: dnf
+    depends_on:
+      - type: dnf
+        packages:
+          - "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
+          - "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
+    pre_install: |
+      sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1
+
+virtualbox:
+  - type: dnf
+    packages: [VirtualBox-7.2]
+    depends_on:
+      - type: dnf
+        packages:
+          - kernel
+          - kernel-core
+          - kernel-modules
+          - kernel-modules-core
+          - kernel-modules-extra
+          - kernel-tools
+          - kernel-tools-libs
+          - kernel-headers
+          - kernel-devel
+
+zsh:
+  - type: dnf
+    post_install: |
+      sh -c "$(wget https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -O -)"
+      chsh -s $(which zsh)
+
+# Libraries
+
+c:
+  - type: dnf
+    packages: [make, cmake, gcc, gcc-c++, gdb, entr, clang-tidy, clang-format]
+  - type: apt
+    packages: [build-essential, gdb, entr, clang-tidy, clang-format]
+
+# Make translates into:
+# git clone {{repo}}
+# make -C <dir>
+# sudo make -C <dir> install
+# rm -rf <dir>
+
+cspec:
+  - type: github
+    repo: mumuki/cspec
+    install_script: |
+      make
+      sudo make install
+
+commons:
+  - type: github
+    repo: sisoputnfrba/so-commons-library
+    install_script: |
+      make
+      sudo make install
+
+doctest:
+  - type: file
+    url: https://raw.githubusercontent.com/doctest/doctest/v2.4.12/doctest/doctest.h
+    destination: /usr/local/include/doctest
+    sudo: true
+
+# Fonts
+
+jetbrains-mono:
+  - type: bash
+    script: |
+      bash -c "$(curl -fsSL https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/install_manual.sh)"
