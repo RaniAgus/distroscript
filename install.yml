@@ -98,7 +98,7 @@ chrome:
           StartupWMClass=1Password
           Comment=Password manager and secure wallet
           MimeType=x-scheme-handler/onepassword;
-          Categories=Office;nano ~/.config/autostart/1password.desktop
+          Categories=Office;
 
 1password-cli:
   - type: dnf
