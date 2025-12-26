@@ -41,12 +41,21 @@ def main():
                 continue
             expected_file = expected_files[0]  # Assume only one
 
-            # Run the generator
-            result = subprocess.run(
-                ['python3', SCRIPT_GENERATOR, input_file, '--os', os_type],
-                capture_output=True, text=True, check=True
-            )
-            generated_script = result.stdout
+            try:
+                # Run the generator
+                result = subprocess.run(
+                    ['python3', SCRIPT_GENERATOR, input_file, '--os', os_type],
+                    capture_output=True, text=True, check=True
+                )
+                generated_script = result.stdout
+            except subprocess.CalledProcessError as e:
+                fail_count += 1
+                print(f"{RED}[ERROR] {base} for {os_type} - generator failed{RESET}")
+                print(f"Command: {' '.join(e.cmd)}")
+                print(f"Return code: {e.returncode}")
+                print(f"Stdout: {e.stdout}")
+                print(f"Stderr: {e.stderr}")
+                continue  # Skip the diff part
 
             # Write to temp file
             with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as temp:
@@ -66,19 +75,18 @@ def main():
                     fail_count += 1
                     print(f"{RED}[FAIL] {base} for {os_type}{RESET}")
                     print(diff_result.stdout)
-            except subprocess.CalledProcessError:
-                # If git diff fails, try regular diff (no colors)
-                diff_result = subprocess.run(
-                    ['diff', expected_file, temp_path],
-                    capture_output=True, text=True
-                )
-                if diff_result.returncode == 0:
-                    pass_count += 1
-                    print(f"{GREEN}[PASS] {base} for {os_type}{RESET}")
-                else:
-                    fail_count += 1
-                    print(f"{RED}[FAIL] {base} for {os_type}{RESET}")
-                    print(diff_result.stdout)
+            except subprocess.CalledProcessError as e:
+                # If git diff fails, show the error
+                fail_count += 1
+                print(f"{RED}[ERROR] {base} for {os_type} - git diff failed{RESET}")
+                print(f"Error: {e}")
+                print(f"Stdout: {e.stdout}")
+                print(f"Stderr: {e.stderr}")
+            except Exception as e:
+                # Other exceptions
+                fail_count += 1
+                print(f"{RED}[ERROR] {base} for {os_type} - unexpected error{RESET}")
+                print(f"Error: {e}")
             finally:
                 os.unlink(temp_path)
 

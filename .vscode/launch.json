@@ -1,0 +1,38 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python Debugger: Current File with Arguments",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "args": [
+        "${workspaceFolder}/tests/inputs/${input:file}.yml",
+        "--os",
+        "${input:os}"
+      ],
+    }
+  ],
+  "inputs": [
+    {
+      "id": "os",
+      "description": "Select the target operating system",
+      "type": "pickString",
+      "options": ["fedora", "ubuntu"]
+    },
+    {
+      "id": "file",
+      "description": "Select the input YAML configuration file",
+      "type": "pickString",
+      "options": [
+        "01-package",
+        "02-package-default-name",
+        "03-package-type-only",
+        "04-pre-post_install",
+        "05-depends_on",
+      ],
+      "default": "01-package"
+    }
+  ]
+}
