@@ -3,9 +3,3 @@ htop:
     packages: [htop]
   - type: apt
     packages: [htop]
-
-jq:
-  - type: dnf
-    packages: [jq]
-  - type: apt
-    packages: [jq]

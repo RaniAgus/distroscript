@@ -1,1 +1,3 @@
-sudo apt install -y htop jq
+#!/bin/bash
+
+sudo apt-get install -y htop

@@ -1,1 +1,3 @@
-sudo dnf install -y htop jq
+#!/bin/bash
+
+sudo dnf install -y htop
