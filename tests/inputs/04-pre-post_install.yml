@@ -1,0 +1,11 @@
+htop: [dnf, apt]
+
+jq: [dnf, apt]
+
+snapd:
+  - apt
+  - type: dnf
+    pre_install: |
+      echo "Installing snapd..."
+    post_install: |
+      sudo ln -s /var/lib/snapd/snap /snap

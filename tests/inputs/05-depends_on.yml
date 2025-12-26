@@ -1,0 +1,34 @@
+htop: [dnf, apt]
+
+jq: [dnf, apt]
+
+snapd:
+  - apt
+  - type: dnf
+    post_install: |
+      sudo ln -s /var/lib/snapd/snap /snap
+
+git:
+  - type: dnf
+    post_install: |
+      git config --global init.defaultBranch main
+      git config --global user.email "aguseranieri@gmail.com"
+      git config --global user.name "Agustin Ranieri"
+      git config --global credential.username "RaniAgus"
+      git config --global gpg.format ssh
+  - type: apt
+    post_install: |
+      git config --global init.defaultBranch main
+      git config --global user.email "aguseranieri@gmail.com"
+      git config --global user.name "Agustin Ranieri"
+      git config --global credential.username "RaniAgus"
+      git config --global gpg.format ssh
+
+gh:
+  - type: dnf
+    depends_on:
+      - type: dnf
+        packages: [dnf5-plugins]
+    repo:
+      name: gh-cli
+      file: https://cli.github.com/packages/rpm/gh-cli.repo

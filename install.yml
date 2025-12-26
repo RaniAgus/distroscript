@@ -23,8 +23,6 @@ dnf-automatic:
           [commands]
           apply_updates=True
 
-dnf5-plugins: [dnf]
-
 # Libraries
 
 c:
@@ -114,7 +112,8 @@ zoom:
 gh:
   - type: dnf
     depends_on:
-      - dnf5-plugins
+      - type: dnf
+        packages: [dnf5-plugins]
     repo:
       name: gh-cli
       file: https://cli.github.com/packages/rpm/gh-cli.repo
@@ -129,7 +128,8 @@ docker:
       - docker-buildx-plugin
       - docker-compose-plugin
     depends_on:
-      - dnf5-plugins
+      - type: dnf
+        packages: [dnf5-plugins]
     repo:
       file: https://download.docker.com/linux/fedora/docker-ce.repo
     post_install: |
