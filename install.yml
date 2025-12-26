@@ -15,7 +15,7 @@ apt-transport-https: [apt]
 dnf-automatic:
   - type: dnf
     post_install:
-      # Se traduce en: echo -e "[commands]\napply_updates=True" | sudo tee /etc/dnf/automatic.conf
+      # Se traduce en: printf "%s\n" "[commands]" "apply_updates=True" | sudo tee /etc/dnf/automatic.conf
       - type: tee
         destination: /etc/dnf/automatic.conf
         sudo: true
@@ -111,12 +111,13 @@ zoom:
 
 gh:
   - type: dnf
+    flags:
+      - "--repo gh-cli"
     depends_on:
       - type: dnf
         packages: [dnf5-plugins]
-    repo:
-      name: gh-cli
-      file: https://cli.github.com/packages/rpm/gh-cli.repo
+    pre_install: |
+      sudo dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
 
 docker:
   - type: dnf
@@ -130,8 +131,8 @@ docker:
     depends_on:
       - type: dnf
         packages: [dnf5-plugins]
-    repo:
-      file: https://download.docker.com/linux/fedora/docker-ce.repo
+    pre_install: |
+      sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
     post_install: |
       sudo systemctl enable --now docker
       sudo groupadd docker
@@ -163,7 +164,8 @@ drawing:
 
 code:
   - type: snapd
-    classic: true
+    flags:
+      - "--classic"
 
 vlc: [snapd]
 

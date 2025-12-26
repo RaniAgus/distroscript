@@ -18,6 +18,7 @@ import yaml
 class Package(ABC):
     pre_install: list[Command] = field(default_factory=list)
     post_install: list[Command] = field(default_factory=list)
+    flags: list[str] = field(default_factory=list)
 
     def print(self) -> str:
         result = ""
@@ -44,7 +45,7 @@ class DnfPackage(Package):
   packages: list[str] = field(default_factory=list)
 
   def print_package(self) -> str:
-      return f"sudo dnf install -y {' '.join(self.packages)}"
+      return f"sudo dnf install -y {' '.join(self.packages)} {' '.join(self.flags)}".strip()
 
 
 @dataclass
@@ -52,7 +53,7 @@ class AptPackage(Package):
   packages: list[str] = field(default_factory=list)
 
   def print_package(self) -> str:
-      return f"sudo apt-get install -y {' '.join(self.packages)}"
+      return f"sudo apt-get install -y {' '.join(self.packages)} {' '.join(self.flags)}".strip()
 
 
 @dataclass
@@ -97,8 +98,9 @@ def create_dnf_package(name: str, item: dict, platform: str) -> list[DnfPackage]
     packages = create_packages_list(item, name)
     pre_install = create_install_commands(item, 'pre_install')
     post_install = create_install_commands(item, 'post_install')
+    flags = item.get('flags', [])
 
-    return [DnfPackage(packages=packages, pre_install=pre_install, post_install=post_install)]
+    return [DnfPackage(packages=packages, pre_install=pre_install, post_install=post_install, flags=flags)]
 
 
 def create_apt_package(name: str, item: dict, platform: str) -> list[AptPackage]:
@@ -108,8 +110,9 @@ def create_apt_package(name: str, item: dict, platform: str) -> list[AptPackage]
     packages=create_packages_list(item, name)
     pre_install = create_install_commands(item, 'pre_install')
     post_install = create_install_commands(item, 'post_install')
+    flags = item.get('flags', [])
 
-    return [AptPackage(packages=packages, pre_install=pre_install, post_install=post_install)]
+    return [AptPackage(packages=packages, pre_install=pre_install, post_install=post_install, flags=flags)]
 
 
 def load_package(name: str, config: list[dict], platform: str) -> list[Package]:
