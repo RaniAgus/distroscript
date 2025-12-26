@@ -1,6 +1,4 @@
 gh:
   - type: dnf
-    flags:
-      - "--repo gh-cli"
-    pre_install: |
-      sudo dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
+    repo: gh-cli
+    repofile: https://cli.github.com/packages/rpm/gh-cli.repo

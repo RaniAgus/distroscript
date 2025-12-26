@@ -30,7 +30,8 @@
         "02-package-default-name",
         "03-package-type-only",
         "04-pre-post_install",
-        "05-depends_on",
+        "05-flags",
+        "06-depends_on",
       ],
       "default": "01-package"
     }

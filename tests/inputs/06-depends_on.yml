@@ -1,0 +1,20 @@
+dnf5-plugins: [dnf]
+
+virtualbox:
+  - type: dnf
+    packages: [VirtualBox-7.2]
+    pre_install: |
+      wget -q https://www.virtualbox.org/download/oracle_vbox_2016.asc -O- | sudo rpm --import -
+    depends_on:
+      - dnf5-plugins
+      - type: dnf
+        packages:
+          - kernel
+          - kernel-core
+          - kernel-modules
+          - kernel-modules-core
+          - kernel-modules-extra
+          - kernel-tools
+          - kernel-tools-libs
+          - kernel-headers
+          - kernel-devel

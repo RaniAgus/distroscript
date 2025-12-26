@@ -19,6 +19,7 @@ class Package(ABC):
     pre_install: list[Command] = field(default_factory=list)
     post_install: list[Command] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
 
     def print(self) -> str:
         result = ""
@@ -57,6 +58,14 @@ class AptPackage(Package):
 
 
 @dataclass
+class UndefinedPackage(Package):
+    name: str = field(default="undefined")
+
+    def print_package(self) -> str:
+        return f"# TODO: Add installation command for package: {self.name}"
+
+
+@dataclass
 class Command:
     @abstractmethod
     def print(self) -> str:
@@ -91,16 +100,40 @@ def create_install_commands(item: dict, key: str) -> list[str]:
     return []
 
 
+def create_common_package_fields(name: str, item: dict, platform: str) -> tuple[list[Command], list[Command], dict[str, Package]]:
+    pre_install = create_install_commands(item, 'pre_install')
+    post_install = create_install_commands(item, 'post_install')
+    deps = load_dependencies(name, item.get('depends_on', []), platform)
+    return pre_install, post_install, deps
+
+
 def create_dnf_package(name: str, item: dict, platform: str) -> list[DnfPackage]:
     if platform not in ['fedora', 'centos', 'rhel']:
         return []
 
     packages = create_packages_list(item, name)
-    pre_install = create_install_commands(item, 'pre_install')
-    post_install = create_install_commands(item, 'post_install')
+    pre_install, post_install, deps = create_common_package_fields(name, item, platform)
     flags = item.get('flags', [])
 
-    return [DnfPackage(packages=packages, pre_install=pre_install, post_install=post_install, flags=flags)]
+    if 'repofile' in item:
+        repo_file = item['repofile']
+        pre_install.append(ShellCommand(
+            command=f"sudo dnf config-manager addrepo --from-repofile={repo_file}\n"
+        ))
+
+    if 'repo' in item:
+        flags.append(f"--repo {item['repo']}")
+
+    return [
+        *deps.values(),
+        DnfPackage(
+            packages=packages,
+            pre_install=pre_install,
+            post_install=post_install,
+            flags=flags,
+            dependencies=list(deps.keys()),
+        )
+    ]
 
 
 def create_apt_package(name: str, item: dict, platform: str) -> list[AptPackage]:
@@ -108,30 +141,58 @@ def create_apt_package(name: str, item: dict, platform: str) -> list[AptPackage]
         return []
 
     packages=create_packages_list(item, name)
-    pre_install = create_install_commands(item, 'pre_install')
-    post_install = create_install_commands(item, 'post_install')
+    pre_install, post_install, deps = create_common_package_fields(name, item, platform)
     flags = item.get('flags', [])
 
-    return [AptPackage(packages=packages, pre_install=pre_install, post_install=post_install, flags=flags)]
+    return [
+        *deps.values(),
+        AptPackage(
+            packages=packages,
+            pre_install=pre_install,
+            post_install=post_install,
+            flags=flags,
+            dependencies=list(deps.keys()),
+        )
+    ]
 
 
-def load_package(name: str, config: list[dict], platform: str) -> list[Package]:
+def load_package(name: str, item: dict, platform: str) -> list[Package]:
+    package_list: list[Package] = []
+
+    if item.get('type') == 'dnf':
+        for pkg in create_dnf_package(name, item, platform):
+            package_list.append(pkg)
+
+    elif item.get('type') == 'apt':
+        for pkg in create_apt_package(name, item, platform):
+            package_list.append(pkg)
+
+    return package_list
+
+
+def load_dependencies(name: str, config: list[dict], platform: str) -> dict[str, Package]:
+    dependencies: dict[str, Package] = {}
+
+    for i, item in enumerate(config):
+        if isinstance(item, str):
+            dependencies[item] = UndefinedPackage(name=item)
+            continue
+
+        for j, pkg in enumerate(load_package(name, item, platform)):
+            dependencies[f"{name}-deps-{i}-{j}"] = pkg
+
+    return dependencies
+
+
+def load_package_list(name: str, config: list[dict], platform: str) -> list[Package]:
     package_list: list[Package] = []
 
     for item in config:
         if isinstance(item, str):
             item = {'type': item}
 
-        if item.get('type') == 'dnf':
-            for pkg in create_dnf_package(name, item, platform):
-                package_list.append(pkg)
-
-        elif item.get('type') == 'apt':
-            for pkg in create_apt_package(name, item, platform):
-                package_list.append(pkg)
-
-        if len(package_list) > 0:
-            break
+        for pkg in load_package(name, item, platform):
+            package_list.append(pkg)
 
     return package_list
 
@@ -140,7 +201,7 @@ def load_packages(config: dict, platform: str) -> dict[str, list[Package]]:
     packages: dict[str, list[Package]] = {}
 
     for name, pkg_list in config.items():
-        packages[name] = load_package(name, pkg_list, platform)
+        packages[name] = load_package_list(name, pkg_list, platform)
 
     return packages
 
@@ -162,7 +223,7 @@ def main(args: argparse.Namespace) -> None:
 
     for _, pkgs in packages.items():
         for pkg in pkgs:
-            script_content += pkg.print()
+            script_content += pkg.print() + "\n"
 
     while script_content.endswith('\n'):
         script_content = script_content[:-1]  # Remove the last extra newline
