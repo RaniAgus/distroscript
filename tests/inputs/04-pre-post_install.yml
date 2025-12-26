@@ -1,11 +1,11 @@
-htop: [dnf, apt]
-
-jq: [dnf, apt]
-
-snapd:
-  - apt
+htop:
+  - type: apt
+    pre_install: |
+      echo "Preparing to install htop apt package..."
+    post_install: |
+      echo "htop installation complete."
   - type: dnf
     pre_install: |
-      echo "Installing snapd..."
+      echo "Preparing to install htop dnf package..."
     post_install: |
-      sudo ln -s /var/lib/snapd/snap /snap
+      echo "htop installation complete."

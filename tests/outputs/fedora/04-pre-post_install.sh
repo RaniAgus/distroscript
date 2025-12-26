@@ -1,5 +1,7 @@
-echo "Installing snapd..."
+#!/bin/bash
 
-sudo dnf install -y htop jq snapd
+echo "Preparing to install htop dnf package..."
 
-sudo ln -s /var/lib/snapd/snap /snap
+sudo dnf install -y htop
+
+echo "htop installation complete."

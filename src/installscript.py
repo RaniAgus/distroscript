@@ -14,17 +14,36 @@ import argparse
 import sys
 import yaml
 
+@dataclass
 class Package(ABC):
-    @abstractmethod
-    def install_command(self) -> str:
-        pass
+    pre_install: list[Command] = field(default_factory=list)
+    post_install: list[Command] = field(default_factory=list)
 
+    def print(self) -> str:
+        result = ""
+
+        for cmd in self.pre_install:
+            result += f"{cmd.print()}\n"
+
+        result += self.print_package() + "\n"
+
+        if len(self.post_install) > 0:
+            result += "\n"
+
+        for cmd in self.post_install:
+            result += f"{cmd.print()}\n"
+
+        return result
+
+    @abstractmethod
+    def print_package(self) -> str:
+        pass
 
 @dataclass
 class DnfPackage(Package):
   packages: list[str] = field(default_factory=list)
 
-  def install_command(self) -> str:
+  def print_package(self) -> str:
       return f"sudo dnf install -y {' '.join(self.packages)}"
 
 
@@ -32,24 +51,65 @@ class DnfPackage(Package):
 class AptPackage(Package):
   packages: list[str] = field(default_factory=list)
 
-  def install_command(self) -> str:
+  def print_package(self) -> str:
       return f"sudo apt-get install -y {' '.join(self.packages)}"
+
+
+@dataclass
+class Command:
+    @abstractmethod
+    def print(self) -> str:
+        pass
+
+
+@dataclass
+class ShellCommand(Command):
+    command: str
+
+    def print(self) -> str:
+        return self.command
+
+
+def create_packages_list(item: dict, default: str) -> list[str]:
+    if 'packages' in item:
+        return item['packages']
+    else:
+        return [default]
+
+
+def create_install_commands(item: dict, key: str) -> list[str]:
+    if not key in item:
+        return []
+
+    commands = item[key]
+
+    if isinstance(commands, str):
+        return [ShellCommand(command=commands)]
+
+    print(f"Unknown command format for key '{key}': {commands}")
+    return []
 
 
 def create_dnf_package(name: str, item: dict, platform: str) -> list[DnfPackage]:
     if platform not in ['fedora', 'centos', 'rhel']:
         return []
 
-    packages = item['packages'] if 'packages' in item else [name]
-    return [DnfPackage(packages=packages)]
+    packages = create_packages_list(item, name)
+    pre_install = create_install_commands(item, 'pre_install')
+    post_install = create_install_commands(item, 'post_install')
+
+    return [DnfPackage(packages=packages, pre_install=pre_install, post_install=post_install)]
 
 
 def create_apt_package(name: str, item: dict, platform: str) -> list[AptPackage]:
     if platform not in ['ubuntu', 'debian']:
         return []
 
-    packages = item['packages'] if 'packages' in item else [name]
-    return [AptPackage(packages=packages)]
+    packages=create_packages_list(item, name)
+    pre_install = create_install_commands(item, 'pre_install')
+    post_install = create_install_commands(item, 'post_install')
+
+    return [AptPackage(packages=packages, pre_install=pre_install, post_install=post_install)]
 
 
 def load_package(name: str, config: list[dict], platform: str) -> list[Package]:
@@ -95,11 +155,14 @@ def main(args: argparse.Namespace) -> None:
     """
     packages = load_config(args.config, args.os)
 
-    script_content = "#!/bin/bash\n"
+    script_content = "#!/bin/bash\n\n"
 
     for _, pkgs in packages.items():
         for pkg in pkgs:
-            script_content += f"\n{pkg.install_command()}"
+            script_content += pkg.print()
+
+    while script_content.endswith('\n'):
+        script_content = script_content[:-1]  # Remove the last extra newline
 
     if args.out:
         with open(args.out, 'w') as outfile:
