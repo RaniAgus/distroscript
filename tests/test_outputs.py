@@ -10,7 +10,7 @@ import glob
 import subprocess
 import tempfile
 
-SCRIPT_GENERATOR = 'installscript.py'
+SCRIPT_GENERATOR = 'src/installscript.py'
 OS_TYPES = ['fedora', 'ubuntu']
 
 # ANSI color codes
