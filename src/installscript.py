@@ -477,6 +477,13 @@ class UndefinedPackage(Package):
 ## Package Helpers ###
 
 
+def create_packages_list(item: dict, default: str) -> list[str]:
+    if 'packages' in item:
+        return item['packages']
+    else:
+        return [default]
+
+
 def create_common_package_fields(name: str, item: dict, platform: str) -> tuple[list[Command], list[Command], dict[str, Package]]:
     pre_install = create_install_commands(item.get('pre_install', []))
     post_install = create_install_commands(item.get('post_install', []))
@@ -559,13 +566,6 @@ class TeeCommand(Command, type='tee'):
         sudo = "sudo " if self.sudo else ""
         content = self.content.removesuffix('\n').replace('\n', '" "')
         return f'printf "%s\\n" "{content}" | {sudo}tee {self.destination}\n'
-
-
-def create_packages_list(item: dict, default: str) -> list[str]:
-    if 'packages' in item:
-        return item['packages']
-    else:
-        return [default]
 
 
 if __name__ == "__main__":
