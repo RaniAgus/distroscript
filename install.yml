@@ -162,6 +162,11 @@ drawing:
   - type: flatpak
     packages: [com.github.maoschanz.drawing]
 
+flatpak:
+  - type: apt
+    post_install: |
+      flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
 code:
   - type: snapd
     classic: true

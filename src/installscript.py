@@ -227,6 +227,39 @@ class FlatpakPackage(Package, type='flatpak'):
 
 
 @dataclass(frozen=True)
+class TarPackage(Package, type='tarball'):
+    url: str = field(default="")
+    sudo: bool = field(default=False)
+    destination: str = field(default="")
+
+    @classmethod
+    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
+        url = item.get('url')
+        destination = item.get('destination')
+        sudo = item.get('sudo', False)
+
+        if not url or not destination:
+            return [UndefinedPackage(name=name)]
+
+        pre_install, post_install, deps = create_common_package_fields(name, item, platform)
+
+        return [
+            *deps.values(),
+            TarPackage(
+                url=url,
+                destination=destination,
+                sudo=sudo,
+                pre_install=tuple(pre_install),
+                post_install=tuple(post_install),
+                dependencies=tuple(deps.keys()),
+            )
+        ]
+
+    def print_package(self) -> str:
+        return f"curl -fsSL \"{self.url}\" | {'sudo ' if self.sudo else ''}tar xzvC {self.destination}"
+
+
+@dataclass(frozen=True)
 class UndefinedPackage(Package):
     name: str = field(default="undefined")
 

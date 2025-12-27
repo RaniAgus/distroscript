@@ -1,0 +1,16 @@
+go:
+  - type: tarball
+    url: "https://go.dev/dl/$(curl -fsSL 'https://golang.org/VERSION?m=text' | head -n1).linux-amd64.tar.gz"
+    destination: /usr/local
+    sudo: true
+
+jetbrains-toolbox:
+  - type: tarball
+    url: $(curl -fsSL "https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release" | jq -r '.TBA[0].downloads.linux.link')
+    destination: /opt
+    sudo: true
+    post_install: |
+      /opt/jetbrains-toolbox-*/bin/jetbrains-toolbox
+    depends_on: [jq]
+
+jq: [apt, dnf]
