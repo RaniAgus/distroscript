@@ -35,17 +35,20 @@ class Package(ABC):
 
 
     def print(self) -> str:
-        result = ""
+        parts = []
 
         for cmd in self.pre_install:
-            result += f"{cmd.print()}\n"
+            parts.append(cmd.print())
+            parts.append("\n")
 
-        result += self.print_package() + "\n"
+        parts.append(self.print_package())
+        parts.append("\n")
 
         for cmd in self.post_install:
-            result += f"\n{cmd.print()}"
+            parts.append("\n")
+            parts.append(cmd.print())
 
-        return result
+        return "".join(parts)
 
     @abstractmethod
     def print_package(self) -> str:
@@ -206,24 +209,48 @@ class UndefinedPackage(Package):
 
 @dataclass(frozen=True)
 class Command:
+    factories = {}
+
+    def __init_subclass__(cls, *, type: str = None, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if type is not None:
+            cls.factories[type] = cls
+
+    @classmethod
+    def create(cls, item: dict) -> Command | None:
+        factory = cls.factories.get(item.get('type'))
+        return factory.create(item) if factory else None
+
     @abstractmethod
     def print(self) -> str:
         pass
 
 
 @dataclass(frozen=True)
-class ShellCommand(Command):
+class ShellCommand(Command, type='shell'):
     command: str
+
+    @classmethod
+    def create(cls, item: dict) -> Command:
+        return ShellCommand(command=item['command'])
 
     def print(self) -> str:
         return self.command
 
 
 @dataclass(frozen=True)
-class TeeCommand(Command):
+class TeeCommand(Command, type='tee'):
     content: str
     destination: str
     sudo: bool = False
+
+    @classmethod
+    def create(cls, item: dict) -> Command:
+        return TeeCommand(
+            content=item['content'],
+            destination=item['destination'],
+            sudo=item.get('sudo', False)
+        )
 
     def print(self) -> str:
         sudo = "sudo " if self.sudo else ""
@@ -238,101 +265,72 @@ def create_packages_list(item: dict, default: str) -> list[str]:
         return [default]
 
 
-def create_install_commands(commands: any) -> list[str]:
-    if commands is None:
-        return []
-
-    if isinstance(commands, str):
-        commands = {
-            'type': 'shell',
-            'command': commands
-        }
-
-    if isinstance(commands, dict):
-        if commands.get('type') == 'shell':
-            return [ShellCommand(command=commands['command'])]
-        elif commands.get('type') == 'tee':
-            return [TeeCommand(
-                content=commands.get('content'),
-                destination=commands.get('destination'),
-                sudo=commands.get('sudo', False)
-            )]
-
-    if isinstance(commands, list):
-        cmd_list: list[Command] = []
-        for cmd in commands:
-            for c in create_install_commands(cmd):
-                cmd_list.append(c)
-        return cmd_list
-
-    print(f"Unknown command format: {commands}")
-    return []
+def create_install_commands(commands: list | dict | str) -> list[str]:
+    return [
+        Command.create(
+            command if isinstance(command, dict)
+            else {'type': 'shell', 'command': command}
+        )
+        for command in (commands if isinstance(commands, list) else [commands])
+    ]
 
 
 def create_common_package_fields(name: str, item: dict, platform: str) -> tuple[list[Command], list[Command], dict[str, Package]]:
-    pre_install = create_install_commands(item.get('pre_install'))
-    post_install = create_install_commands(item.get('post_install'))
+    pre_install = create_install_commands(item.get('pre_install', []))
+    post_install = create_install_commands(item.get('post_install', []))
     deps = load_dependencies(name, item.get('depends_on', []), platform)
     return pre_install, post_install, deps
 
 
 def load_package(name: str, item: dict, platform: str) -> list[Package]:
-    package_list: list[Package] = []
-
-    for pkg in Package.create(name, item, platform):
-        package_list.append(pkg)
-
-    return package_list
+    return [
+        pkg
+        for pkg in Package.create(name, item, platform)
+    ]
 
 
 def load_dependencies(name: str, config: list[dict], platform: str) -> dict[str, Package]:
-    dependencies: dict[str, Package] = {}
+    deps: dict[str, Package] = {}
 
     for i, item in enumerate(config):
         if isinstance(item, str):
-            dependencies[item] = UndefinedPackage(name=item)
+            deps[item] = UndefinedPackage(name=item)
             continue
 
         for j, pkg in enumerate(load_package(name, item, platform)):
-            dependencies[f"{name}-deps-{i}-{j}"] = pkg
+            deps[f"__{name}_{i}_{j}"] = pkg
 
-    return dependencies
+    return deps
 
 
 def load_package_list(name: str, config: list[dict], platform: str) -> list[Package]:
-    package_list: list[Package] = []
-
-    for item in config:
-        if isinstance(item, str):
-            item = {'type': item}
-
-        for pkg in load_package(name, item, platform):
-            package_list.append(pkg)
-
-    return package_list
+    return [
+        pkg
+        for item in config
+        for pkg in load_package(
+            name,
+            item if isinstance(item, dict) else {"type": item},
+            platform,
+        )
+    ]
 
 
 def load_packages(config: dict, platform: str) -> dict[str, list[Package]]:
-    packages: dict[str, list[Package]] = {}
-
-    for name, pkg_list in config.items():
-        packages[name] = load_package_list(name, pkg_list, platform)
-
-    return packages
+    return {
+        name: load_package_list(name, pkg_list, platform)
+        for name, pkg_list in config.items()
+    }
 
 
 def sort_packages(packages: dict[str, list[Package]]) -> list[Package]:
-    sorted_packages: list[Package] = []
     seen: set[Package] = set()
-
-    for pkg_list in packages.values():
-        for pkg in pkg_list:
-            for resolved in pkg.resolve(packages):
-                if resolved not in seen:
-                    seen.add(resolved)
-                    sorted_packages.append(resolved)
-
-    return sorted_packages
+    return [
+        resolved
+        for pkg_list in packages.values()
+        for pkg in pkg_list
+        for resolved in pkg.resolve(packages)
+        if resolved not in seen and seen.add(resolved) is None
+    ]
 
 
 def main(args: argparse.Namespace) -> None:
@@ -344,13 +342,13 @@ def main(args: argparse.Namespace) -> None:
 
         packages = load_packages(config, args.os)
 
-        script_content = "#!/bin/bash\n\n"
+        lines = [
+            "#!/bin/bash",
+            "",
+            *(pkg.print() for pkg in sort_packages(packages))
+        ]
 
-        for pkg in sort_packages(packages):
-            script_content += pkg.print() + "\n"
-
-        while script_content.endswith('\n'):
-            script_content = script_content[:-1]  # Remove the last extra newline
+        script_content = "\n".join(lines).strip()
 
         if args.out:
             with open(args.out, 'w') as outfile:
