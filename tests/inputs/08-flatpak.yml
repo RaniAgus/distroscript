@@ -1,0 +1,28 @@
+flatpak:
+  - type: apt
+    post_install: |
+      flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+kdenlive:
+  - type: flatpak
+    packages: [org.kde.kdenlive]
+
+pcsx2:
+  - type: flatpak
+    packages: [net.pcsx2.PCSX2]
+
+pdfarranger:
+  - type: flatpak
+    packages: [com.github.jeromerobert.pdfarranger]
+
+obs-studio:
+  - type: flatpak
+    packages: [com.obsproject.Studio]
+
+discord:
+  - type: flatpak
+    packages: [com.discordapp.Discord]
+
+drawing:
+  - type: flatpak
+    packages: [com.github.maoschanz.drawing]

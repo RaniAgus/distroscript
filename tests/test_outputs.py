@@ -37,7 +37,7 @@ def main():
             expected_pattern = os.path.join(outputs_dir, os_type, f"{number}-*.sh")
             expected_files = glob.glob(expected_pattern)
             if not expected_files:
-                print(f"SKIP: No expected file for {input_file} on {os_type}")
+                print(f"[SKIP] No expected file for {input_file} on {os_type}")
                 continue
             expected_file = expected_files[0]  # Assume only one
 
