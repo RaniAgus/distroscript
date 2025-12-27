@@ -225,15 +225,15 @@ yt-dlp:
 
 cspec:
   - type: github
-    repo: mumuki/cspec
-    install_script: |
+    repository: mumuki/cspec
+    install: |
       make
       sudo make install
 
 commons:
   - type: github
-    repo: sisoputnfrba/so-commons-library
-    install_script: |
+    repository: sisoputnfrba/so-commons-library
+    install: |
       make
       sudo make install
 

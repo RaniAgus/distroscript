@@ -1,0 +1,13 @@
+cspec:
+  - type: github
+    repository: mumuki/cspec
+    install: |
+      make
+      sudo make install
+
+commons:
+  - type: github
+    repository: sisoputnfrba/so-commons-library
+    install: |
+      make
+      sudo make install

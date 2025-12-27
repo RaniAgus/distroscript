@@ -260,6 +260,45 @@ class TarPackage(Package, type='tarball'):
 
 
 @dataclass(frozen=True)
+class GitHubPackage(Package, type='github'):
+    repository: str = field(default="")
+    install: str = field(default="")
+
+    @classmethod
+    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
+        repository = item.get('repository')
+        install = item.get('install', "")
+
+        if not repository or not install:
+            return [UndefinedPackage(name=name)]
+
+        pre_install, post_install, deps = create_common_package_fields(name, item, platform)
+
+        return [
+            *deps.values(),
+            GitHubPackage(
+                repository=repository,
+                install=install,
+                pre_install=tuple(pre_install),
+                post_install=tuple(post_install),
+                dependencies=tuple(deps.keys()),
+            )
+        ]
+
+    def print_package(self) -> str:
+        lines = []
+        lines.append(f"TMP_DIR=$(mktemp -d)")
+        lines.append(f"git clone https://github.com/{self.repository}.git $TMP_DIR")
+        lines.append(f"(")
+        lines.append(f"  cd $TMP_DIR")
+        for line in self.install.splitlines():
+            lines.append(f"  {line}")
+        lines.append(f")")
+        lines.append(f"rm -rf $TMP_DIR")
+        return "\n".join(lines).strip()
+
+
+@dataclass(frozen=True)
 class UndefinedPackage(Package):
     name: str = field(default="undefined")
 
