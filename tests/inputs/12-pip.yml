@@ -1,0 +1,35 @@
+pip:
+  - type: dnf
+    packages: [python3-pip]
+  - type: apt
+    packages: [python3-pip]
+
+build-essential:
+  - type: dnf
+    packages: [make, cmake, gcc, gcc-c++]
+  - type: apt
+    packages: [build-essential]
+
+kazam:
+  - type: pip
+    depends_on:
+      - build-essential
+      - type: dnf
+        packages: [python3-wheel, zlib-devel]
+    post_install:
+      - type: tee
+        destination: ~/.local/share/applications/kazam.desktop
+        content: |
+          [Desktop Entry]
+          Name=Kazam
+          Comment=Screen recording tool
+          Exec=kazam
+          Icon=kazam
+          Terminal=false
+          Type=Application
+          Categories=AudioVideo;Recorder;
+          StartupNotify=true
+
+yt-dlp:
+  - type: pip
+    packages: ["yt-dlp[default]"]

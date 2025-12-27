@@ -227,6 +227,33 @@ class FlatpakPackage(Package, type='flatpak'):
 
 
 @dataclass(frozen=True)
+class PipPackage(Package, type='pip'):
+    packages: tuple[str, ...] = field(default_factory=tuple)
+
+    @classmethod
+    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
+        packages = create_packages_list(item, name)
+        pre_install, post_install, deps = create_common_package_fields(name, item, platform)
+        flags = item.get('flags', [])
+
+        deps['pip'] = UndefinedPackage(name='pip')
+
+        return [
+            *deps.values(),
+            PipPackage(
+                packages=tuple(packages),
+                pre_install=tuple(pre_install),
+                post_install=tuple(post_install),
+                flags=tuple(flags),
+                dependencies=tuple(deps.keys()),
+            )
+        ]
+
+    def print_package(self) -> str:
+        return f"pip install -U {' '.join(self.packages)} {' '.join(self.flags)}".strip()
+
+
+@dataclass(frozen=True)
 class TarPackage(Package, type='tarball'):
     url: str = field(default="")
     sudo: bool = field(default=False)
@@ -333,6 +360,45 @@ class FilePackage(Package, type='file'):
 
 
 @dataclass(frozen=True)
+class ShellPackage(Package, type='shell'):
+    shell: str = field(default="bash")
+    script: str = field(default=None)
+    url: str = field(default=None)
+
+    @classmethod
+    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
+        shell = item.get('shell', 'bash')
+        script = item.get('script')
+        url = item.get('url')
+
+        if not script and not url:
+            return [UndefinedPackage(name=name)]
+
+        pre_install, post_install, deps = create_common_package_fields(name, item, platform)
+
+        if shell not in ['bash', 'sh']:
+            deps[shell] = UndefinedPackage(name=shell)
+
+        return [
+            *deps.values(),
+            ShellPackage(
+                shell=shell,
+                script=script,
+                url=url,
+                pre_install=tuple(pre_install),
+                post_install=tuple(post_install),
+                dependencies=tuple(deps.keys()),
+            )
+        ]
+
+    def print_package(self) -> str:
+        if self.url:
+            return f"{self.shell} -c \"$(curl -fsSL \"{self.url}\")\""
+
+        return f"{self.shell} <<'EOF'\n{self.script}EOF"
+
+
+@dataclass(frozen=True)
 class UndefinedPackage(Package):
     name: str = field(default="undefined")
 
@@ -395,7 +461,7 @@ class TeeCommand(Command, type='tee'):
     def print(self) -> str:
         sudo = "sudo " if self.sudo else ""
         content = self.content.removesuffix('\n').replace('\n', '" "')
-        return f'printf "%s\\n" "{content}" | {sudo}tee {self.destination}'
+        return f'printf "%s\\n" "{content}" | {sudo}tee {self.destination}\n'
 
 
 def create_packages_list(item: dict, default: str) -> list[str]:

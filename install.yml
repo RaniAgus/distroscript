@@ -9,6 +9,8 @@ snapd:
 pip:
   - type: dnf
     packages: [python3-pip]
+  - type: apt
+    packages: [python3-pip]
 
 apt-transport-https: [apt]
 
@@ -25,12 +27,19 @@ dnf-automatic:
 
 # Libraries
 
-c:
+build-essential:
   - type: dnf
-    packages: [make, cmake, gcc, gcc-c++, gdb, entr, clang-tidy, clang-format]
+    packages: [make, cmake, gcc, gcc-c++]
   - type: apt
-    packages: [build-essential, gdb, entr, clang-tidy, clang-format]
+    packages: [build-essential]
 
+gdb: [dnf, apt]
+
+entr: [dnf, apt]
+
+clang-tidy: [dnf, apt]
+
+clang-format: [dnf, apt]
 
 # CLI Tools
 
@@ -199,7 +208,7 @@ duckstation:
 kazam:
   - type: pip
     depends_on:
-      - c
+      - build-essential
       - type: dnf
         packages: [python3-wheel, zlib-devel]
     post_install:
@@ -262,14 +271,13 @@ jetbrains-toolbox:
     depends_on: [jq]
 
 rust:
-  - type: bash
-    script: |
-      curl https://sh.rustup.rs -sSf | sh
+  - type: shell
+    url: https://sh.rustup.rs
 
 sdkman:
-  - type: bash
-    script: |
-      curl -s "https://get.sdkman.io" | bash
+  - type: shell
+    shell: zsh
+    url: https://get.sdkman.io
 
 pseint:
   - type: tarball
@@ -308,12 +316,15 @@ virtualbox:
 zsh:
   - type: dnf
     post_install: |
-      sh -c "$(wget https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -O -)"
+      sh -c "$(wget "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh" -O -)"
+      chsh -s $(which zsh)
+  - type: apt
+    post_install: |
+      sh -c "$(wget "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh" -O -)"
       chsh -s $(which zsh)
 
 # Fonts
 
 jetbrains-mono:
-  - type: bash
-    script: |
-      bash -c "$(curl -fsSL https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/install_manual.sh)"
+  - type: shell
+    url: https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/install_manual.sh

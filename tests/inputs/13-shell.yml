@@ -1,0 +1,22 @@
+rust:
+  - type: shell
+    url: https://sh.rustup.rs
+
+sdkman:
+  - type: shell
+    shell: zsh
+    url: https://get.sdkman.io
+
+zsh:
+  - type: dnf
+    post_install: |
+      sh -c "$(wget "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh" -O -)"
+      chsh -s $(which zsh)
+  - type: apt
+    post_install: |
+      sh -c "$(wget "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh" -O -)"
+      chsh -s $(which zsh)
+
+jetbrains-mono:
+  - type: shell
+    url: https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/install_manual.sh
