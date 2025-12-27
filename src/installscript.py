@@ -80,6 +80,18 @@ class ShellCommand(Command):
         return self.command
 
 
+@dataclass
+class TeeCommand(Command):
+    content: str
+    destination: str
+    sudo: bool = False
+
+    def print(self) -> str:
+        sudo = "sudo " if self.sudo else ""
+        content = self.content.removesuffix('\n').replace('\n', '" "')
+        return f'printf "%s\\n" "{content}" | {sudo}tee {self.destination}'
+
+
 def create_packages_list(item: dict, default: str) -> list[str]:
     if 'packages' in item:
         return item['packages']
@@ -87,22 +99,40 @@ def create_packages_list(item: dict, default: str) -> list[str]:
         return [default]
 
 
-def create_install_commands(item: dict, key: str) -> list[str]:
-    if not key in item:
+def create_install_commands(commands: any) -> list[str]:
+    if commands is None:
         return []
 
-    commands = item[key]
-
     if isinstance(commands, str):
-        return [ShellCommand(command=commands)]
+        commands = {
+            'type': 'shell',
+            'command': commands
+        }
 
-    print(f"Unknown command format for key '{key}': {commands}")
+    if isinstance(commands, dict):
+        if commands.get('type') == 'shell':
+            return [ShellCommand(command=commands['command'])]
+        elif commands.get('type') == 'tee':
+            return [TeeCommand(
+                content=commands.get('content'),
+                destination=commands.get('destination'),
+                sudo=commands.get('sudo', False)
+            )]
+
+    if isinstance(commands, list):
+        cmd_list: list[Command] = []
+        for cmd in commands:
+            for c in create_install_commands(cmd):
+                cmd_list.append(c)
+        return cmd_list
+
+    print(f"Unknown command format: {commands}")
     return []
 
 
 def create_common_package_fields(name: str, item: dict, platform: str) -> tuple[list[Command], list[Command], dict[str, Package]]:
-    pre_install = create_install_commands(item, 'pre_install')
-    post_install = create_install_commands(item, 'post_install')
+    pre_install = create_install_commands(item.get('pre_install'))
+    post_install = create_install_commands(item.get('post_install'))
     deps = load_dependencies(name, item.get('depends_on', []), platform)
     return pre_install, post_install, deps
 

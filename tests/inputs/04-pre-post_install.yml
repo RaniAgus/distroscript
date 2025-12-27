@@ -5,7 +5,14 @@ htop:
     post_install: |
       echo "htop installation complete."
   - type: dnf
-    pre_install: |
-      echo "Preparing to install htop dnf package..."
-    post_install: |
-      echo "htop installation complete."
+    pre_install:
+      - type: shell
+        command: |
+          echo "Preparing to install htop dnf package..."
+    post_install:
+      - type: tee
+        destination: /tmp/htop_install.log
+        sudo: true
+        content: |
+          htop installation complete.
+          timestamp=$(date)
