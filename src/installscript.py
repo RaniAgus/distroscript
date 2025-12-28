@@ -44,9 +44,10 @@ def main(args: argparse.Namespace) -> None:
 
 def load_packages(config: dict, platform: str) -> dict[str, list[Package]]:
     return {
-        name: load_package_list(name, pkg_list, platform)
+        name: pkgs
         for name, pkg_list in config.items()
-        if len(pkg_list) > 0
+        for pkgs in [load_package_list(name, pkg_list, platform)]
+        if len(pkgs) > 0
     }
 
 
@@ -496,10 +497,11 @@ def create_install_commands(commands: list | dict | str) -> list[Command]:
     return [
         cmd
         for command in (commands if isinstance(commands, list) else [commands])
-        for cmd in Command.create(
+        for cmd in [Command.create(
             command if isinstance(command, dict)
             else {'type': 'shell', 'command': command}
-        )
+        )]
+        if cmd is not None
     ]
 
 
@@ -529,9 +531,9 @@ class Command:
             cls.factories[type] = cls
 
     @classmethod
-    def create(cls, item: dict) -> list[Command]:
+    def create(cls, item: dict) -> Command | None:
         factory = cls.factories.get(item.get('type', ''))
-        return factory.create(item) if factory else []
+        return factory.create(item) if factory else None
 
     @abstractmethod
     def print(self) -> str:
@@ -543,8 +545,8 @@ class ShellCommand(Command, type='shell'):
     command: str = field(default="")
 
     @classmethod
-    def create(cls, item: dict) -> list[Command]:
-        return [ShellCommand(command=item['command'])]
+    def create(cls, item: dict) -> Command:
+        return ShellCommand(command=item['command'])
 
     def print(self) -> str:
         return self.command
@@ -557,12 +559,12 @@ class TeeCommand(Command, type='tee'):
     sudo: bool = field(default=False)
 
     @classmethod
-    def create(cls, item: dict) -> list[Command]:
-        return [TeeCommand(
+    def create(cls, item: dict) -> Command:
+        return TeeCommand(
             content=item['content'],
             destination=item['destination'],
             sudo=item.get('sudo', False)
-        )]
+        )
 
     def print(self) -> str:
         sudo = "sudo " if self.sudo else ""

@@ -2,6 +2,8 @@
 
 set -e
 
+# TODO: Add installation command for package: flatpak
+
 flatpak install -y flathub org.kde.kdenlive
 
 flatpak install -y flathub net.pcsx2.PCSX2
