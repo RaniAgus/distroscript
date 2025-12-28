@@ -12,6 +12,7 @@ from abc import ABC, abstractmethod
 
 import argparse
 import sys
+from typing import ClassVar
 import yaml
 
 
@@ -68,7 +69,7 @@ def sort_packages(packages: dict[str, list[Package]]) -> list[Package]:
         for pkg_list in packages.values()
         for pkg in pkg_list
         for resolved in pkg.resolve(packages)
-        if resolved not in seen and seen.add(resolved) is None
+        if resolved not in seen and seen.add(resolved) is None # type: ignore[func-returns-value]
     ]
 
 
@@ -77,21 +78,21 @@ def sort_packages(packages: dict[str, list[Package]]) -> list[Package]:
 
 @dataclass(frozen=True)
 class Package(ABC):
-    factories = {}
+    factories: ClassVar[dict[str, type[Package]]] = {}
 
     pre_install: tuple[Command, ...] = field(default_factory=tuple)
     post_install: tuple[Command, ...] = field(default_factory=tuple)
     flags: tuple[str, ...] = field(default_factory=tuple)
     dependencies: tuple[str, ...] = field(default_factory=tuple)
 
-    def __init_subclass__(cls, *, type: str = None, **kwargs):
+    def __init_subclass__(cls, *, type: str | None = None, **kwargs):
         super().__init_subclass__(**kwargs)
         if type is not None:
             cls.factories[type] = cls
 
     @classmethod
     def create(cls, name: str, item: dict, platform: str) -> list[Package]:
-        factory = cls.factories.get(item.get('type'), UndefinedPackage)
+        factory = cls.factories.get(item.get('type', ''), UndefinedPackage)
         return factory.create(name, item, platform)
 
 
@@ -423,8 +424,8 @@ class FilePackage(Package, type='file'):
 @dataclass(frozen=True)
 class ShellPackage(Package, type='shell'):
     shell: str = field(default="bash")
-    script: str = field(default=None)
-    url: str = field(default=None)
+    script: str | None = field(default=None)
+    url: str | None = field(default=None)
 
     @classmethod
     def create(cls, name: str, item: dict, platform: str) -> list[Package]:
@@ -491,13 +492,14 @@ def create_common_package_fields(name: str, item: dict, platform: str) -> tuple[
     return pre_install, post_install, deps
 
 
-def create_install_commands(commands: list | dict | str) -> list[str]:
+def create_install_commands(commands: list | dict | str) -> list[Command]:
     return [
-        Command.create(
+        cmd
+        for command in (commands if isinstance(commands, list) else [commands])
+        for cmd in Command.create(
             command if isinstance(command, dict)
             else {'type': 'shell', 'command': command}
         )
-        for command in (commands if isinstance(commands, list) else [commands])
     ]
 
 
@@ -519,17 +521,17 @@ def load_dependencies(name: str, config: list[dict], platform: str) -> dict[str,
 
 @dataclass(frozen=True)
 class Command:
-    factories = {}
+    factories: ClassVar[dict[str, type[Command]]] = {}
 
-    def __init_subclass__(cls, *, type: str = None, **kwargs):
+    def __init_subclass__(cls, *, type: str | None = None, **kwargs):
         super().__init_subclass__(**kwargs)
         if type is not None:
             cls.factories[type] = cls
 
     @classmethod
-    def create(cls, item: dict) -> Command | None:
-        factory = cls.factories.get(item.get('type'))
-        return factory.create(item) if factory else None
+    def create(cls, item: dict) -> list[Command]:
+        factory = cls.factories.get(item.get('type', ''))
+        return factory.create(item) if factory else []
 
     @abstractmethod
     def print(self) -> str:
@@ -538,11 +540,11 @@ class Command:
 
 @dataclass(frozen=True)
 class ShellCommand(Command, type='shell'):
-    command: str
+    command: str = field(default="")
 
     @classmethod
-    def create(cls, item: dict) -> Command:
-        return ShellCommand(command=item['command'])
+    def create(cls, item: dict) -> list[Command]:
+        return [ShellCommand(command=item['command'])]
 
     def print(self) -> str:
         return self.command
@@ -550,22 +552,25 @@ class ShellCommand(Command, type='shell'):
 
 @dataclass(frozen=True)
 class TeeCommand(Command, type='tee'):
-    content: str
-    destination: str
-    sudo: bool = False
+    content: str = field(default="")
+    destination: str = field(default="")
+    sudo: bool = field(default=False)
 
     @classmethod
-    def create(cls, item: dict) -> Command:
-        return TeeCommand(
+    def create(cls, item: dict) -> list[Command]:
+        return [TeeCommand(
             content=item['content'],
             destination=item['destination'],
             sudo=item.get('sudo', False)
-        )
+        )]
 
     def print(self) -> str:
         sudo = "sudo " if self.sudo else ""
         content = self.content.removesuffix('\n').replace('\n', '" "')
         return f'printf "%s\\n" "{content}" | {sudo}tee {self.destination}\n'
+
+
+## Entry Point ###
 
 
 if __name__ == "__main__":
