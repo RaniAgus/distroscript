@@ -21,9 +21,14 @@ def main(args: argparse.Namespace) -> None:
     Usage: installscript.py <config.yaml> --os <os_name> [--out <output.sh>]
     """
     with open(args.config_path, 'r') as file:
+        platform = PLATFORMS.get(args.os)
+        if platform is None:
+            print(f"Error: Unsupported OS '{args.os}'. Supported OS: {', '.join(PLATFORMS.keys())}")
+            sys.exit(1)
+
         config = yaml.safe_load(file)
 
-        packages = load_packages(config, args.os)
+        packages = load_packages(config, platform)
 
         lines = [
             "#!/usr/bin/env bash",
@@ -54,7 +59,7 @@ def main(args: argparse.Namespace) -> None:
             print(script_content)
 
 
-def load_packages(config: dict, platform: str) -> dict[str, list[Package]]:
+def load_packages(config: dict, platform: Platform) -> dict[str, list[Package]]:
     return {
         name: pkgs
         for name, pkg_list in config.items()
@@ -63,7 +68,7 @@ def load_packages(config: dict, platform: str) -> dict[str, list[Package]]:
     }
 
 
-def load_package_list(name: str, config: list[dict], platform: str) -> list[Package]:
+def load_package_list(name: str, config: list[dict], platform: Platform) -> list[Package]:
     return [
         pkg
         for item in config
@@ -85,6 +90,39 @@ def sort_packages(packages: dict[str, list[Package]]) -> list[Package]:
         if resolved not in seen and seen.add(resolved) is None # type: ignore[func-returns-value]
     ]
 
+## Platforms ###
+
+@dataclass(frozen=True)
+class Platform:
+    preinstalled_packages: tuple[str, ...] = field(default_factory=tuple)
+    blacklisted_types: tuple[str, ...] = field(default_factory=tuple)
+
+    def allows(self, package_type: str) -> bool:
+        return package_type not in self.blacklisted_types
+
+    def preinstalls(self, package_type: str) -> bool:
+        return package_type in self.preinstalled_packages
+
+
+PLATFORMS = {
+    'ubuntu': Platform(
+        preinstalled_packages=('bash', 'apt', 'deb', 'snapd'),
+        blacklisted_types=('dnf',),
+    ),
+    'popos': Platform(
+        preinstalled_packages=('bash', 'apt', 'deb', 'flatpak'),
+        blacklisted_types=('dnf',),
+    ),
+    'mint': Platform(
+        preinstalled_packages=('bash', 'apt', 'deb'),
+        blacklisted_types=('dnf',),
+    ),
+    'fedora': Platform(
+        preinstalled_packages=('bash', 'dnf', 'flatpak'),
+        blacklisted_types=('apt', 'deb'),
+    ),
+}
+
 
 ### Package Implementations ###
 
@@ -104,8 +142,14 @@ class Package(ABC):
             cls.factories[type] = cls
 
     @classmethod
-    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
-        factory = cls.factories.get(item.get('type', ''), UndefinedPackage)
+    def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
+        if not 'type' in item:
+            return []
+
+        if not platform.allows(item['type']):
+            return []
+
+        factory = cls.factories.get(item['type'], UndefinedPackage)
         return factory.create(name, item, platform)
 
 
@@ -135,10 +179,7 @@ class DnfPackage(Package, type='dnf'):
     packages: tuple[str, ...] = field(default_factory=tuple)
 
     @classmethod
-    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
-        if platform not in ['fedora', 'centos', 'rhel']:
-            return []
-
+    def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         packages = create_packages_list(item, name)
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
         flags = item.get('flags', [])
@@ -177,10 +218,7 @@ class AptPackage(Package, type='apt'):
     packages: tuple[str, ...] = field(default_factory=tuple)
 
     @classmethod
-    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
-        if platform not in ['ubuntu', 'debian']:
-            return []
-
+    def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         packages=create_packages_list(item, name)
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
         flags = item.get('flags', [])
@@ -205,10 +243,7 @@ class DebPackage(Package, type='deb'):
     packages: tuple[str, ...] = field(default_factory=tuple)
 
     @classmethod
-    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
-        if platform not in ['ubuntu', 'debian']:
-            return []
-
+    def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         packages = create_packages_list(item, name)
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
         flags = item.get('flags', [])
@@ -239,10 +274,7 @@ class SnapPackage(Package, type='snapd'):
     packages: tuple[str, ...] = field(default_factory=tuple)
 
     @classmethod
-    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
-        if platform not in ['ubuntu', 'debian', 'fedora', 'centos', 'rhel']:
-            return []
-
+    def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         packages = create_packages_list(item, name)
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
         flags = item.get('flags', [])
@@ -250,7 +282,8 @@ class SnapPackage(Package, type='snapd'):
         if 'classic' in item and item['classic']:
             flags.append('--classic')
 
-        deps['snapd'] = UndefinedPackage(name='snapd')
+        if not platform.preinstalls('snapd'):
+            deps['snapd'] = UndefinedPackage(name='snapd')
 
         return [
             *deps.values(),
@@ -273,15 +306,13 @@ class FlatpakPackage(Package, type='flatpak'):
     packages: tuple[str, ...] = field(default_factory=tuple)
 
     @classmethod
-    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
-        if platform not in ['ubuntu', 'debian', 'fedora', 'centos', 'rhel']:
-            return []
-
+    def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         packages = create_packages_list(item, name)
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
         flags = item.get('flags', [])
 
-        deps['flatpak'] = UndefinedPackage(name='flatpak')
+        if not platform.preinstalls('flatpak'):
+            deps['flatpak'] = UndefinedPackage(name='flatpak')
 
         remote = "flathub"
         if 'remote' in item:
@@ -308,12 +339,13 @@ class PipPackage(Package, type='pip'):
     packages: tuple[str, ...] = field(default_factory=tuple)
 
     @classmethod
-    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
+    def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         packages = create_packages_list(item, name)
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
         flags = item.get('flags', [])
 
-        deps['pip'] = UndefinedPackage(name='pip')
+        if not platform.preinstalls('pip'):
+            deps['pip'] = UndefinedPackage(name='pip')
 
         return [
             *deps.values(),
@@ -337,13 +369,13 @@ class TarPackage(Package, type='tar'):
     destination: str = field(default="")
 
     @classmethod
-    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
+    def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         url = item.get('url')
         destination = item.get('destination')
         sudo = item.get('sudo', False)
 
         if not url or not destination:
-            return [UndefinedPackage(name=name)]
+            raise RuntimeError(f"TarPackage requires 'url' and 'destination' fields.")
 
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
 
@@ -370,13 +402,13 @@ class ZipPackage(Package, type='zip'):
     destination: str = field(default="")
 
     @classmethod
-    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
+    def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         url = item.get('url')
         destination = item.get('destination')
         sudo = item.get('sudo', False)
 
         if not url or not destination:
-            return [UndefinedPackage(name=name)]
+            raise RuntimeError(f"ZipPackage requires 'url' and 'destination' fields.")
 
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
 
@@ -407,12 +439,12 @@ class GitHubPackage(Package, type='github'):
     install: str = field(default="")
 
     @classmethod
-    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
+    def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         repository = item.get('repository')
         install = item.get('install', "")
 
         if not repository or not install:
-            return [UndefinedPackage(name=name)]
+            raise RuntimeError(f"GitHubPackage requires 'repository' and 'install' fields.")
 
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
 
@@ -447,13 +479,13 @@ class FilePackage(Package, type='file'):
     sudo: bool = field(default=False)
 
     @classmethod
-    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
+    def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         url = item.get('url')
         destination = item.get('destination')
         sudo = item.get('sudo', False)
 
         if not url or not destination:
-            return [UndefinedPackage(name=name)]
+            raise RuntimeError(f"FilePackage requires 'url' and 'destination' fields.")
 
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
 
@@ -481,17 +513,17 @@ class ShellPackage(Package, type='shell'):
     url: str | None = field(default=None)
 
     @classmethod
-    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
+    def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         shell = item.get('shell', 'bash')
         script = item.get('script')
         url = item.get('url')
 
         if not script and not url:
-            return [UndefinedPackage(name=name)]
+            raise RuntimeError(f"ShellPackage requires either 'script' or 'url' field.")
 
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
 
-        if shell not in ['bash', 'sh']:
+        if not platform.preinstalls(shell):
             deps[shell] = UndefinedPackage(name=shell)
 
         return [
@@ -518,14 +550,14 @@ class UndefinedPackage(Package):
     name: str = field(default="undefined")
 
     @classmethod
-    def create(cls, name: str, item: dict, platform: str) -> list[Package]:
+    def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         return [UndefinedPackage(name=name)]
 
     def print_package(self) -> str:
         return f"# TODO: Add installation command for package: {self.name}"
 
     def resolve(self, all_packages: dict[str, list[Package]]) -> Package:
-        return all_packages.get(self.name)[-1] if self.name in all_packages else super().resolve(all_packages)
+        return all_packages.get(self.name, [])[-1] if self.name in all_packages else super().resolve(all_packages)
 
 
 ## Package Helpers ###
@@ -538,7 +570,7 @@ def create_packages_list(item: dict, default: str) -> list[str]:
         return [default]
 
 
-def create_common_package_fields(name: str, item: dict, platform: str) -> tuple[list[Command], list[Command], dict[str, Package]]:
+def create_common_package_fields(name: str, item: dict, platform: Platform) -> tuple[list[Command], list[Command], dict[str, Package]]:
     pre_install = create_install_commands(item.get('pre_install', []))
     post_install = create_install_commands(item.get('post_install', []))
     deps = load_dependencies(name, item.get('depends_on', []), platform)
@@ -557,7 +589,7 @@ def create_install_commands(commands: list | dict | str) -> list[Command]:
     ]
 
 
-def load_dependencies(name: str, config: list[dict], platform: str) -> dict[str, Package]:
+def load_dependencies(name: str, config: list[dict], platform: Platform) -> dict[str, Package]:
     deps: dict[str, Package] = {}
 
     for i, item in enumerate(config):
