@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 
 import argparse
 import sys
-from typing import ClassVar
+from typing import ClassVar, Generic, TypeVar
 import yaml
 
 
@@ -29,6 +29,8 @@ def main(args: argparse.Namespace) -> None:
         config = yaml.safe_load(file)
 
         packages = load_packages(config, platform)
+        sorted = sort_packages(packages)
+        merged = merge_packages(sorted)
 
         lines = [
             "#!/usr/bin/env bash",
@@ -47,7 +49,7 @@ def main(args: argparse.Namespace) -> None:
             "",
             "set -e",
             "",
-            *(pkg.print() for pkg in sort_packages(packages))
+            *(pkg.print() for pkg in merged)
         ]
 
         script_content = "\n".join(lines).strip()
@@ -90,10 +92,25 @@ def sort_packages(packages: dict[str, list[Package]]) -> list[Package]:
         if resolved not in seen and seen.add(resolved) is None # type: ignore[func-returns-value]
     ]
 
+def merge_packages(packages: list[Package]) -> list[Package]:
+    merged: list[Package] = []
+
+    for pkg in packages:
+        for i, existing in enumerate(merged):
+            merged_pkg = existing.merge(pkg)
+            if merged_pkg is not None:
+                merged[i] = merged_pkg
+                break
+        else:
+            merged.append(pkg)
+
+    return merged
+
+
 ## Platforms ###
 
 @dataclass(frozen=True)
-class Platform:
+class Platform(ABC):
     preinstalled_packages: tuple[str, ...] = field(default_factory=tuple)
     blacklisted_types: tuple[str, ...] = field(default_factory=tuple)
 
@@ -126,11 +143,13 @@ PLATFORMS = {
 
 ### Package Implementations ###
 
+T = TypeVar('T', bound='Package')
 
 @dataclass(frozen=True)
-class Package(ABC):
+class Package(ABC, Generic[T]):
     factories: ClassVar[dict[str, type[Package]]] = {}
 
+    satisfies: tuple[str, ...] = field(default_factory=tuple)
     pre_install: tuple[Command, ...] = field(default_factory=tuple)
     post_install: tuple[Command, ...] = field(default_factory=tuple)
     flags: tuple[str, ...] = field(default_factory=tuple)
@@ -173,6 +192,24 @@ class Package(ABC):
     def resolve(self, all_packages: dict[str, list[Package]]) -> list[Package]:
         return [self]
 
+    def merge(self: T, other: Package) -> T | None:
+        if not isinstance(other, type(self)):
+            return None
+
+        if self.flags != other.flags:
+            return None
+
+        if set(self.dependencies).isdisjoint(set(other.satisfies)) is False:
+            return None
+
+        if set(other.dependencies).isdisjoint(set(self.satisfies)) is False:
+            return None
+
+        return self.apply_merge(other)
+
+    def apply_merge(self: T, other: T) -> T | None:
+        return None
+
 
 @dataclass(frozen=True)
 class DnfPackage(Package, type='dnf'):
@@ -199,8 +236,9 @@ class DnfPackage(Package, type='dnf'):
             ))
 
         return [
-            *deps.values(),
+            *(pkg for pkgs in deps.values() for pkg in pkgs),
             DnfPackage(
+                satisfies=(name,),
                 packages=tuple(packages),
                 pre_install=tuple(pre_install),
                 post_install=tuple(post_install),
@@ -211,6 +249,17 @@ class DnfPackage(Package, type='dnf'):
 
     def print_package(self) -> str:
         return f"sudo dnf install -y {' '.join(self.packages)} {' '.join(self.flags)}".strip()
+
+    def apply_merge(self, other: 'DnfPackage') -> 'DnfPackage' | None:
+        merged_packages = tuple(sorted(set(self.packages) | set(other.packages)))
+        return DnfPackage(
+            satisfies=self.satisfies + other.satisfies,
+            packages=merged_packages,
+            pre_install=self.pre_install + other.pre_install,
+            post_install=self.post_install + other.post_install,
+            flags=self.flags,
+            dependencies=self.dependencies + other.dependencies,
+        )
 
 
 @dataclass(frozen=True)
@@ -224,8 +273,9 @@ class AptPackage(Package, type='apt'):
         flags = item.get('flags', [])
 
         return [
-            *deps.values(),
+            *(pkg for pkgs in deps.values() for pkg in pkgs),
             AptPackage(
+                satisfies=(name,),
                 packages=tuple(packages),
                 pre_install=tuple(pre_install),
                 post_install=tuple(post_install),
@@ -236,6 +286,17 @@ class AptPackage(Package, type='apt'):
 
     def print_package(self) -> str:
         return f"sudo apt-get install -y {' '.join(self.packages)} {' '.join(self.flags)}".strip()
+
+    def apply_merge(self, other: 'AptPackage') -> 'AptPackage' | None:
+        merged_packages = tuple(sorted(set(self.packages) | set(other.packages)))
+        return AptPackage(
+            satisfies=self.satisfies + other.satisfies,
+            packages=merged_packages,
+            pre_install=self.pre_install + other.pre_install,
+            post_install=self.post_install + other.post_install,
+            flags=self.flags,
+            dependencies=self.dependencies + other.dependencies,
+        )
 
 
 @dataclass(frozen=True)
@@ -249,8 +310,9 @@ class DebPackage(Package, type='deb'):
         flags = item.get('flags', [])
 
         return [
-            *deps.values(),
+            *(pkg for pkgs in deps.values() for pkg in pkgs),
             DebPackage(
+                satisfies=(name,),
                 packages=tuple(packages),
                 pre_install=tuple(pre_install),
                 post_install=tuple(post_install),
@@ -283,11 +345,12 @@ class SnapPackage(Package, type='snapd'):
             flags.append('--classic')
 
         if not platform.preinstalls('snapd'):
-            deps['snapd'] = UndefinedPackage(name='snapd')
+            deps['snapd'] = [UndefinedPackage(name='snapd')]
 
         return [
-            *deps.values(),
+            *(pkg for pkgs in deps.values() for pkg in pkgs),
             SnapPackage(
+                satisfies=(name,),
                 packages=tuple(packages),
                 pre_install=tuple(pre_install),
                 post_install=tuple(post_install),
@@ -298,6 +361,17 @@ class SnapPackage(Package, type='snapd'):
 
     def print_package(self) -> str:
         return f"sudo snap install {' '.join(self.packages)} {' '.join(self.flags)}".strip()
+
+    def apply_merge(self, other: 'SnapPackage') -> 'SnapPackage' | None:
+        merged_packages = tuple(sorted(set(self.packages) | set(other.packages)))
+        return SnapPackage(
+            satisfies=self.satisfies + other.satisfies,
+            packages=merged_packages,
+            pre_install=self.pre_install + other.pre_install,
+            post_install=self.post_install + other.post_install,
+            flags=self.flags,
+            dependencies=self.dependencies + other.dependencies,
+        )
 
 
 @dataclass(frozen=True)
@@ -312,15 +386,16 @@ class FlatpakPackage(Package, type='flatpak'):
         flags = item.get('flags', [])
 
         if not platform.preinstalls('flatpak'):
-            deps['flatpak'] = UndefinedPackage(name='flatpak')
+            deps['flatpak'] = [UndefinedPackage(name='flatpak')]
 
         remote = "flathub"
         if 'remote' in item:
             remote = item['remote']
 
         return [
-            *deps.values(),
+            *(pkg for pkgs in deps.values() for pkg in pkgs),
             FlatpakPackage(
+                satisfies=(name,),
                 packages=tuple(packages),
                 pre_install=tuple(pre_install),
                 post_install=tuple(post_install),
@@ -332,6 +407,18 @@ class FlatpakPackage(Package, type='flatpak'):
 
     def print_package(self) -> str:
         return f"flatpak install -y {self.remote} {' '.join(self.packages)} {' '.join(self.flags)}".strip()
+
+    def apply_merge(self, other: 'FlatpakPackage') -> 'FlatpakPackage' | None:
+        merged_packages = tuple(sorted(set(self.packages) | set(other.packages)))
+        return FlatpakPackage(
+            satisfies=self.satisfies + other.satisfies,
+            packages=merged_packages,
+            pre_install=self.pre_install + other.pre_install,
+            post_install=self.post_install + other.post_install,
+            flags=self.flags,
+            dependencies=self.dependencies + other.dependencies,
+            remote=self.remote,
+        )
 
 
 @dataclass(frozen=True)
@@ -345,11 +432,12 @@ class PipPackage(Package, type='pip'):
         flags = item.get('flags', [])
 
         if not platform.preinstalls('pip'):
-            deps['pip'] = UndefinedPackage(name='pip')
+            deps['pip'] = [UndefinedPackage(name='pip')]
 
         return [
-            *deps.values(),
+            *(pkg for pkgs in deps.values() for pkg in pkgs),
             PipPackage(
+                satisfies=(name,),
                 packages=tuple(packages),
                 pre_install=tuple(pre_install),
                 post_install=tuple(post_install),
@@ -360,6 +448,17 @@ class PipPackage(Package, type='pip'):
 
     def print_package(self) -> str:
         return f"pip install -U {' '.join(self.packages)} {' '.join(self.flags)}".strip()
+
+    def apply_merge(self, other: 'PipPackage') -> 'PipPackage' | None:
+        merged_packages = tuple(sorted(set(self.packages) | set(other.packages)))
+        return PipPackage(
+            satisfies=self.satisfies + other.satisfies,
+            packages=merged_packages,
+            pre_install=self.pre_install + other.pre_install,
+            post_install=self.post_install + other.post_install,
+            flags=self.flags,
+            dependencies=self.dependencies + other.dependencies,
+        )
 
 
 @dataclass(frozen=True)
@@ -380,8 +479,9 @@ class TarPackage(Package, type='tar'):
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
 
         return [
-            *deps.values(),
+            *(pkg for pkgs in deps.values() for pkg in pkgs),
             TarPackage(
+                satisfies=(name,),
                 url=url,
                 destination=destination,
                 sudo=sudo,
@@ -413,8 +513,9 @@ class ZipPackage(Package, type='zip'):
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
 
         return [
-            *deps.values(),
+            *(pkg for pkgs in deps.values() for pkg in pkgs),
             ZipPackage(
+                satisfies=(name,),
                 url=url,
                 destination=destination,
                 sudo=sudo,
@@ -449,8 +550,9 @@ class GitHubPackage(Package, type='github'):
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
 
         return [
-            *deps.values(),
+            *(pkg for pkgs in deps.values() for pkg in pkgs),
             GitHubPackage(
+                satisfies=(name,),
                 repository=repository,
                 install=install,
                 pre_install=tuple(pre_install),
@@ -490,8 +592,9 @@ class FilePackage(Package, type='file'):
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
 
         return [
-            *deps.values(),
+            *(pkg for pkgs in deps.values() for pkg in pkgs),
             FilePackage(
+                satisfies=(name,),
                 url=url,
                 destination=destination,
                 sudo=sudo,
@@ -524,11 +627,12 @@ class ShellPackage(Package, type='shell'):
         pre_install, post_install, deps = create_common_package_fields(name, item, platform)
 
         if not platform.preinstalls(shell):
-            deps[shell] = UndefinedPackage(name=shell)
+            deps[shell] = [UndefinedPackage(name=shell)]
 
         return [
-            *deps.values(),
+            *(pkg for pkgs in deps.values() for pkg in pkgs),
             ShellPackage(
+                satisfies=(name,),
                 shell=shell,
                 script=script,
                 url=url,
@@ -574,7 +678,7 @@ def create_packages_list(item: dict, default: str) -> list[str]:
         return [default]
 
 
-def create_common_package_fields(name: str, item: dict, platform: Platform) -> tuple[list[Command], list[Command], dict[str, Package]]:
+def create_common_package_fields(name: str, item: dict, platform: Platform) -> tuple[list[Command], list[Command], dict[str, list[Package]]]:
     pre_install = create_install_commands(item.get('pre_install', []))
     post_install = create_install_commands(item.get('post_install', []))
     deps = load_dependencies(name, item.get('depends_on', []), platform)
@@ -593,16 +697,15 @@ def create_install_commands(commands: list | dict | str) -> list[Command]:
     ]
 
 
-def load_dependencies(name: str, config: list[dict], platform: Platform) -> dict[str, Package]:
-    deps: dict[str, Package] = {}
+def load_dependencies(name: str, config: list[dict], platform: Platform) -> dict[str, list[Package]]:
+    deps: dict[str, list[Package]] = {}
 
     for i, item in enumerate(config):
         if isinstance(item, str):
-            deps[item] = UndefinedPackage(name=item)
+            deps[item] = [UndefinedPackage(name=item)]
             continue
 
-        for j, pkg in enumerate(Package.create(name, item, platform)):
-            deps[f"__{name}_{i}_{j}"] = pkg
+        deps[f"__{name}_{i}"] = Package.create(f"__{name}_{i}", item, platform)
 
     return deps
 

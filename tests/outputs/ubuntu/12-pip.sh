@@ -14,11 +14,9 @@
 
 set -e
 
-sudo apt-get install -y python3-pip
+sudo apt-get install -y build-essential python3-pip
 
-sudo apt-get install -y build-essential
-
-pip install -U kazam
+pip install -U kazam yt-dlp[default]
 
 tee ~/.local/share/applications/kazam.desktop <<'EOF'
 [Desktop Entry]
@@ -31,5 +29,3 @@ Type=Application
 Categories=AudioVideo;Recorder;
 StartupNotify=true
 EOF
-
-pip install -U yt-dlp[default]

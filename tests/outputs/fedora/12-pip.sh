@@ -14,13 +14,9 @@
 
 set -e
 
-sudo dnf install -y python3-pip
+sudo dnf install -y cmake gcc gcc-c++ make python3-pip python3-wheel zlib-devel
 
-sudo dnf install -y make cmake gcc gcc-c++
-
-sudo dnf install -y python3-wheel zlib-devel
-
-pip install -U kazam
+pip install -U kazam yt-dlp[default]
 
 tee ~/.local/share/applications/kazam.desktop <<'EOF'
 [Desktop Entry]
@@ -33,5 +29,3 @@ Type=Application
 Categories=AudioVideo;Recorder;
 StartupNotify=true
 EOF
-
-pip install -U yt-dlp[default]
