@@ -92,5 +92,8 @@ def main():
 
     print(f"\n{BOLD}Results:{RESET} {GREEN}{pass_count} passed{RESET}, {RED}{fail_count} failed{RESET}")
 
+    if fail_count > 0:
+        exit(1)
+
 if __name__ == '__main__':
     main()
