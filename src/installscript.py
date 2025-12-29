@@ -758,11 +758,13 @@ class ShellPackage(Package, type='shell'):
             parts.append(' -c "$(curl -fsSL "')
             parts.append(self.url)
             parts.append('")"')
-        else:
+        elif self.script:
             parts.append(self.shell)
             parts.append(" <<'EOF'\n")
             parts.append(self.script)
             parts.append("EOF")
+        else:
+            raise RuntimeError("ShellPackage requires either 'script' or 'url' field.")
 
         return "".join(parts).strip()
 
