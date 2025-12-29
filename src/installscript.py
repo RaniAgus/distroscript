@@ -7,7 +7,7 @@ Generates shell scripts for installing software packages on different Linux dist
 receiving a declarative YAML configuration file as input.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from abc import ABC, abstractmethod
 
 import argparse
@@ -29,8 +29,11 @@ def main(args: argparse.Namespace) -> None:
         config = yaml.safe_load(file)
 
         packages = load_packages(config, platform)
-        sorted = sort_packages(packages)
-        merged = merge_packages(sorted)
+        resolved = resolve_packages(packages)
+        merged = merge_packages([
+            pkg.calculate_transitive_dependencies(resolved)
+            for pkg in resolved
+        ])
 
         lines = [
             "#!/usr/bin/env bash",
@@ -82,7 +85,7 @@ def load_package_list(name: str, config: list[dict], platform: Platform) -> list
     ]
 
 
-def sort_packages(packages: dict[str, list[Package]]) -> list[Package]:
+def resolve_packages(packages: dict[str, list[Package]]) -> list[Package]:
     seen: set[Package] = set()
     return [
         resolved
@@ -91,6 +94,7 @@ def sort_packages(packages: dict[str, list[Package]]) -> list[Package]:
         for resolved in pkg.resolve(packages)
         if resolved not in seen and seen.add(resolved) is None # type: ignore[func-returns-value]
     ]
+
 
 def merge_packages(packages: list[Package]) -> list[Package]:
     merged: list[Package] = []
@@ -209,6 +213,20 @@ class Package(ABC, Generic[T]):
 
     def apply_merge(self: T, other: T) -> T | None:
         return None
+
+    def calculate_transitive_dependencies(self, packages: list[Package]) -> Package:
+        return replace(self, dependencies=tuple(sorted(self.all_dependencies(packages))))
+
+    def all_dependencies(self, packages: list[Package]) -> set[str]:
+        dependencies = set(self.dependencies)
+        dependencies.update(
+            transitive_dep
+            for dep in self.dependencies
+            for pkg in packages
+            if dep in pkg.satisfies
+            for transitive_dep in pkg.all_dependencies(packages)
+        )
+        return dependencies
 
 
 @dataclass(frozen=True)
