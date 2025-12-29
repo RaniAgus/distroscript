@@ -1,0 +1,32 @@
+kazam: [pip]
+
+pip:
+  - type: dnf
+    packages: [python3-pip]
+    depends_on: [oh-my-zsh]
+    post_install:
+      - type: tee
+        destination: "$HOME/.zshrc"
+        append: true
+        content: |
+          # pip
+          export PATH="$HOME/.local/bin:$PATH"
+  - type: apt
+    packages: [python3-pip]
+    depends_on: [oh-my-zsh]
+    post_install:
+      - type: tee
+        destination: "$HOME/.zshrc"
+        append: true
+        content: |
+          # pip
+          export PATH="$HOME/.local/bin:$PATH"
+
+oh-my-zsh:
+  - type: shell
+    url: https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh
+    depends_on: [zsh]
+    pre_install: |
+      rm -rf "$HOME/.oh-my-zsh"
+
+zsh: [dnf, apt]
