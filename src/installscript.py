@@ -797,9 +797,9 @@ class ShellPackage(Package, type='shell'):
             parts.append('")"')
         elif self.script:
             parts.append(self.shell)
-            parts.append(" <<'EOF'\n")
-            parts.append(self.script)
-            parts.append("EOF")
+            parts.append(' -i -c "\n')
+            parts.append(script_escape(self.script))
+            parts.append('" </dev/null')
         else:
             raise RuntimeError("ShellPackage requires either 'script' or 'url' field.")
 
@@ -865,6 +865,10 @@ def load_dependencies(name: str, config: list[dict], platform: Platform) -> dict
         deps[f"__{name}_{i}"] = Package.create(f"__{name}_{i}", item, platform)
 
     return deps
+
+
+def script_escape(script: str) -> str:
+    return script.replace('\\', '\\\\').replace('"', '\\"').replace('$', '\\$').replace('`', '\\`')
 
 
 ## Command Implementations ###

@@ -23,4 +23,15 @@ chsh -s $(which zsh)
 
 zsh -c "$(curl -fsSL "https://get.sdkman.io")"
 
+zsh -i -c "
+sdk install java \$(sdk list java | grep -E '21\\..*-tem' | head -1 | awk '{print \$NF}')
+sdk install java \$(sdk list java | grep -E '17\\..*-tem' | head -1 | awk '{print \$NF}')
+sdk install java \$(sdk list java | grep -E '11\\..*-tem' | head -1 | awk '{print \$NF}')
+sdk install maven
+sdk install gradle
+sdk install kotlin
+sdk install scala
+sdk install sbt
+" </dev/null
+
 bash -c "$(curl -fsSL "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/install_manual.sh")"
