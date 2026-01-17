@@ -1,0 +1,5 @@
+obsidian:
+  - type: flatpak
+    packages: [md.obsidian.Obsidian]
+  - type: snapd
+    classic: true

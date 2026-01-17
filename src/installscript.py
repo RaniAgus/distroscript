@@ -84,15 +84,17 @@ def load_packages(config: dict, platform: Platform) -> dict[str, list[Package]]:
 
 
 def load_package_list(name: str, config: list[dict], platform: Platform) -> list[Package]:
-    return [
-        pkg
-        for item in config
-        for pkg in Package.create(
+    for item in config:
+        packages = Package.create(
             name,
             item if isinstance(item, dict) else {"type": item},
             platform,
         )
-    ]
+
+        if len(packages) > 0:
+            return packages
+
+    return []
 
 
 def resolve_packages(packages: dict[str, list[Package]]) -> list[Package]:
@@ -893,6 +895,7 @@ class UndefinedPackage(Package):
         return [
             resolved
             for pkg in all_packages.get(self.name, [])
+            if pkg != self
             for resolved in pkg.resolve(all_packages)
         ] if self.name in all_packages else super().resolve(all_packages)
 
