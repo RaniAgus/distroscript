@@ -1,0 +1,324 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InstallScript Configuration Schema",
+  "description": "Schema for installscript YAML configuration files",
+  "type": "object",
+  "patternProperties": {
+    "^[a-zA-Z0-9_-]+$": {
+      "type": "array",
+      "description": "List of installation methods for this package",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "string",
+            "description": "Simple type specification (e.g., 'apt', 'dnf')"
+          },
+          {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["apt", "dnf", "deb", "snapd", "flatpak", "pip", "tar", "zip", "github", "file", "shell", "appimage"],
+                "description": "Package manager or installation method"
+              },
+              "packages": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "List of package names to install"
+              },
+              "depends_on": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "object",
+                      "required": ["type"],
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "packages": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "description": "Dependencies that must be installed first"
+              },
+              "pre_install": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "object",
+                          "required": ["type"],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": ["shell", "tee"]
+                            },
+                            "command": {
+                              "type": "string"
+                            },
+                            "content": {
+                              "type": "string"
+                            },
+                            "destination": {
+                              "type": "string"
+                            },
+                            "sudo": {
+                              "type": "boolean"
+                            },
+                            "append": {
+                              "type": "boolean"
+                            },
+                            "mkdir": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "description": "Commands to run before installation"
+              },
+              "post_install": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "object",
+                          "required": ["type"],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": ["shell", "tee"]
+                            },
+                            "command": {
+                              "type": "string"
+                            },
+                            "content": {
+                              "type": "string"
+                            },
+                            "destination": {
+                              "type": "string"
+                            },
+                            "sudo": {
+                              "type": "boolean"
+                            },
+                            "append": {
+                              "type": "boolean"
+                            },
+                            "mkdir": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "description": "Commands to run after installation"
+              },
+              "flags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Additional flags for the package manager"
+              },
+              "sudo": {
+                "type": "boolean",
+                "description": "Whether to use sudo for this operation"
+              },
+              "repofile": {
+                "type": "string",
+                "description": "DNF repository file URL"
+              },
+              "repo": {
+                "type": "string",
+                "description": "DNF repository name"
+              },
+              "copr": {
+                "type": "string",
+                "description": "DNF COPR repository"
+              },
+              "classic": {
+                "type": "boolean",
+                "description": "Snap classic flag"
+              },
+              "remote": {
+                "type": "string",
+                "description": "Flatpak remote name"
+              },
+              "url": {
+                "type": "string",
+                "description": "URL for tar, zip, file, shell, or appimage packages"
+              },
+              "destination": {
+                "type": "string",
+                "description": "Destination path for tar, zip, or file packages"
+              },
+              "repository": {
+                "type": "string",
+                "description": "GitHub repository (owner/repo)"
+              },
+              "install": {
+                "type": "string",
+                "description": "Installation commands for GitHub packages"
+              },
+              "silent": {
+                "type": "boolean",
+                "description": "Suppress output for file downloads"
+              },
+              "executable": {
+                "type": "boolean",
+                "description": "Make file executable after download"
+              },
+              "name": {
+                "type": "string",
+                "description": "AppImage application name"
+              },
+              "icon_name": {
+                "type": "string",
+                "description": "AppImage icon name for desktop integration"
+              },
+              "categories": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "description": "Desktop entry categories for AppImage"
+              },
+              "shell": {
+                "type": "string",
+                "description": "Shell to use for shell packages"
+              },
+              "script": {
+                "type": "string",
+                "description": "Inline script for shell packages"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "const": "tar"
+                    }
+                  }
+                },
+                "then": {
+                  "required": ["url", "destination"]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "const": "zip"
+                    }
+                  }
+                },
+                "then": {
+                  "required": ["url", "destination"]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "const": "github"
+                    }
+                  }
+                },
+                "then": {
+                  "required": ["repository", "install"]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "const": "file"
+                    }
+                  }
+                },
+                "then": {
+                  "required": ["url", "destination"]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "const": "appimage"
+                    }
+                  }
+                },
+                "then": {
+                  "required": ["url"]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "const": "shell"
+                    }
+                  }
+                },
+                "then": {
+                  "anyOf": [
+                    {
+                      "required": ["url"]
+                    },
+                    {
+                      "required": ["script"]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

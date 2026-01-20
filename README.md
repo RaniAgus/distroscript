@@ -26,14 +26,36 @@ options:
 - Ubuntu / Debian
 
 ```bash
-sudo apt-get install python3 python3-pyyaml
+sudo apt-get install python3 python3-pyyaml python3-jsonschema
 ```
 
 - Fedora / Red Hat / CentOS
 
 ```bash
-sudo dnf install python3 python3-pyyaml
+sudo dnf install python3 python3-pyyaml python3-jsonschema
 ```
+
+- MacOS
+
+```bash
+brew install python3 pyyaml jsonschema
+```
+
+## Schema Validation
+
+The configuration files are validated against a JSON Schema specification (`src/schema.json`) 
+that defines the structure and constraints for all supported package types and their properties.
+
+The validation happens automatically after reading the YAML file and before processing begins. 
+If validation fails, the script will exit with a detailed error message showing:
+- The path to the invalid field
+- A description of what's wrong
+
+This helps catch configuration errors early, such as:
+- Missing required fields (e.g., `url` for tar packages)
+- Invalid package type names
+- Incorrect property types (e.g., string instead of array)
+- Unsupported properties for a given package type
 
 ## Basic Usage
 

@@ -7,14 +7,17 @@ Generates shell scripts for installing software packages on different Linux dist
 receiving a declarative YAML configuration file as input.
 """
 
+from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from abc import ABC, abstractmethod
 
 import argparse
+import json
+from jsonschema import validate, ValidationError
+import os
 import sys
 from typing import ClassVar, Generic, TypeVar
 import yaml
-
 
 def main(args: argparse.Namespace) -> None:
     """
@@ -37,6 +40,10 @@ def main(args: argparse.Namespace) -> None:
     except Exception as e:
         print(f"Error: Failed to read config file: {e}")
         sys.exit(1)
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    schema_path = os.path.join(script_dir, 'schema.json')
+    validate_config(config, schema_path)
 
     packages = load_packages(config, platform)
     resolved = resolve_packages(packages)
@@ -65,13 +72,32 @@ def main(args: argparse.Namespace) -> None:
         *(pkg.print() for pkg in merged)
     ]
 
-    script_content = "\n".join(lines).strip()
+    script_content = "\n".join(lines).strip() + "\n"
 
     if args.out:
         with open(args.out, 'w') as outfile:
             outfile.write(script_content)
     else:
         print(script_content)
+
+
+def validate_config(config: dict, schema_path: str) -> None:
+    try:
+        with open(schema_path, 'r') as schema_file:
+            schema = json.load(schema_file)
+        
+        validate(instance=config, schema=schema)
+    except ValidationError as e:
+        print(f"Error: Configuration validation failed:")
+        print(f"  Path: {' -> '.join(str(p) for p in e.path) if e.path else 'root'}")
+        print(f"  Message: {e.message}")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON schema file: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Validation error: {e}")
+        sys.exit(1)
 
 
 def load_packages(config: dict, platform: Platform) -> dict[str, list[Package]]:

@@ -47,7 +47,7 @@ def main():
                     ['python3', SCRIPT_GENERATOR, input_file, '--os', os_type],
                     capture_output=True, text=True, check=True
                 )
-                generated_script = result.stdout
+                generated_script = result.stdout[:-1] if result.stdout.endswith('\n') else result.stdout
             except subprocess.CalledProcessError as e:
                 fail_count += 1
                 print(f"{RED}[ERROR] {base} for {os_type} - generator failed{RESET}")

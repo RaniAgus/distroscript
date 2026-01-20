@@ -25,7 +25,7 @@ jobs:
           python-version: '3.x'
 
       - name: Install dependencies
-        run: pip install pyyaml mypy types-PyYAML
+        run: pip install pyyaml jsonschema mypy types-pyyaml types-jsonschema
 
       - name: Run linter
         run: mypy ./src/installscript.py
