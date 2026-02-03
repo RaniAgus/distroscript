@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "InstallScript Configuration Schema",
-  "description": "Schema for installscript YAML configuration files",
+  "title": "DistroScript Configuration Schema",
+  "description": "Schema for distroscript YAML configuration files",
   "type": "object",
   "patternProperties": {
     "^[a-zA-Z0-9_-]+$": {

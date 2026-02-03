@@ -1,10 +1,10 @@
-# installscript
+# distroscript
 
 Generate installation scripts for various Linux distributions based on a
 declarative YAML configuration file.
 
 ```txt
-installscript.py [-h] --os OS [--out OUT] config_path
+distroscript.py [-h] --os OS [--out OUT] config_path
 
 Generate installation scripts from YAML config.
 
@@ -82,7 +82,7 @@ For example, for `--os fedora`, the generated script will use `dnf` to install
 `git`:
 
 ```txt
-> installscript.py --os fedora config.yaml
+> distroscript.py --os fedora config.yaml
 #!/bin/bash
 
 sudo dnf install -y git
@@ -91,7 +91,7 @@ sudo dnf install -y git
 For `--os ubuntu`, it will use `apt`:
 
 ```txt
-> installscript.py --os ubuntu config.yaml
+> distroscript.py --os ubuntu config.yaml
 #!/bin/bash
 
 sudo apt-get install -y git
@@ -158,7 +158,7 @@ pip:
 ```
 
 > [!WARNING]
-> If dependency is not declared, installscript will output a TODO comment, so
+> If dependency is not declared, distroscript will output a TODO comment, so
 > the user can manually add it to the configuration file later if needed.
 
 ### 3. Run commands before or after install

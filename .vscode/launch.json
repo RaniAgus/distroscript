@@ -5,7 +5,7 @@
       "name": "Python Debugger: Current File with Arguments",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/src/installscript.py",
+      "program": "${workspaceFolder}/src/distroscript.py",
       "console": "integratedTerminal",
       "args": [
         "${workspaceFolder}/${input:file}.yml",

@@ -28,7 +28,7 @@ jobs:
         run: pip install pyyaml jsonschema mypy types-pyyaml types-jsonschema
 
       - name: Run linter
-        run: mypy ./src/installscript.py
+        run: mypy ./src/distroscript.py
 
       - name: Run tests
         run: python3 ./tests/run_tests.py
