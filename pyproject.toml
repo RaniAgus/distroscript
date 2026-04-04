@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "distroscript"
+dynamic = ["version"]
+description = "Generate Bash installation scripts from a declarative YAML config for multiple Linux distros"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml",
+    "jsonschema",
+]
+
+[project.scripts]
+distroscript = "distroscript:_cli"
+
+[project.urls]
+Homepage = "https://github.com/RaniAgus/distroscript"
+Repository = "https://github.com/RaniAgus/distroscript"
+
+[tool.hatch.version]
+path = "src/distroscript.py"
+
+[tool.hatch.build.targets.wheel]
+sources = ["src"]
+include = [
+    "distroscript.py",
+    "schema.json",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/distroscript.py",
+    "src/schema.json",
+    "tests/",
+    "README.md",
+    "LICENSE",
+]

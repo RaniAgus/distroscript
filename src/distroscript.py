@@ -19,6 +19,8 @@ import sys
 from typing import ClassVar, Generic, TypeVar
 import yaml
 
+__version__ = "0.1.0"
+
 def main(args: argparse.Namespace) -> None:
     """
     Usage: distroscript.py <config.yaml> --os <os_name> [--out <output.sh>]
@@ -1148,10 +1150,14 @@ class TeeCommand(Command, type='tee'):
 ## Entry Point ###
 
 
-if __name__ == "__main__":
+def _cli() -> None:
     args_parser = argparse.ArgumentParser(description="Generate installation scripts from YAML config.")
     args_parser.add_argument("config_path", help="Path to the YAML configuration file.")
     args_parser.add_argument("--os", required=True, help="Target operating system (e.g., 'ubuntu', 'fedora').")
     args_parser.add_argument("--out", help="Output shell script file path (optional, defaults to stdout).")
     args = args_parser.parse_args(sys.argv[1:])
     main(args)
+
+
+if __name__ == "__main__":
+    _cli()
