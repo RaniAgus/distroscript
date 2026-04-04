@@ -20,7 +20,7 @@ mkdir -p "$(dirname "$HOME/.local/bin/DuckStation.AppImage")"
 curl -fsSL "https://github.com/stenzek/duckstation/releases/download/latest/DuckStation-x64.AppImage" -o "$HOME/.local/bin/DuckStation.AppImage" > /dev/null
 chmod +x "$HOME/.local/bin/DuckStation.AppImage"
 
-mkdir -p "$(dirname "$HOME/.local/share/applications/DuckStation.desktop)"
+mkdir -p "$(dirname "$HOME/.local/share/applications/DuckStation.desktop")"
 tee "$HOME/.local/share/applications/DuckStation.desktop" <<'EOF'
 [Desktop Entry]
 Name=DuckStation
@@ -29,7 +29,7 @@ Type=Application
 Terminal=false
 Categories=Game;Emulator;
 Icon=org.duckstation.DuckStation
-Exec=$HOME/.local/bin/DuckStation.AppImage
+Exec=sh -c "$HOME/.local/bin/DuckStation.AppImage"
 EOF
 
 (

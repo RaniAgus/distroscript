@@ -885,7 +885,7 @@ class AppImagePackage(Package, type='appimage'):
         desktop_entry.append(f'Categories={";".join(item.get('categories', 'Application'))};')
         if icon_name:
             desktop_entry.append(f'Icon={icon_name}')
-        desktop_entry.append(f'Exec={destination}')
+        desktop_entry.append(f'Exec=sh -c "{destination}"')
         desktop_entry.append('')
 
         post_install.append(
@@ -1125,7 +1125,7 @@ class TeeCommand(Command, type='tee'):
         if self.mkdir:
             parts.append('mkdir -p "$(dirname "')
             parts.append(self.destination)
-            parts.append(')"\n')
+            parts.append('")"\n')
 
         if self.sudo:
             parts.append('sudo ')
