@@ -4,7 +4,7 @@ Generate installation scripts for various Linux distributions based on a
 declarative YAML configuration file.
 
 ```txt
-distroscript.py [-h] --os OS [--out OUT] config_path
+distroscript [-h] --os OS [--out OUT] config_path
 
 Generate installation scripts from YAML config.
 
@@ -21,41 +21,19 @@ options:
 > For now, only `fedora` is fully supported, but I plan to add support for
 > `ubuntu`, `popos` and `mint` in the future.
 
-## Dependencies
-
-- Ubuntu / Debian
+## Installation
 
 ```bash
-sudo apt-get install python3 python3-pyyaml python3-jsonschema
+pip install distroscript
 ```
 
-- Fedora / Red Hat / CentOS
+## Development
+
+Install dev dependencies with:
 
 ```bash
-sudo dnf install python3 python3-pyyaml python3-jsonschema
+pip install -e ".[dev]"
 ```
-
-- MacOS
-
-```bash
-brew install python3 pyyaml jsonschema
-```
-
-## Schema Validation
-
-The configuration files are validated against a JSON Schema specification (`src/schema.json`) 
-that defines the structure and constraints for all supported package types and their properties.
-
-The validation happens automatically after reading the YAML file and before processing begins. 
-If validation fails, the script will exit with a detailed error message showing:
-- The path to the invalid field
-- A description of what's wrong
-
-This helps catch configuration errors early, such as:
-- Missing required fields (e.g., `url` for tar packages)
-- Invalid package type names
-- Incorrect property types (e.g., string instead of array)
-- Unsupported properties for a given package type
 
 ## Basic Usage
 

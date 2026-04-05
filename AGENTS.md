@@ -18,13 +18,13 @@ mypy ./src/distroscript.py
 python3 ./tests/run_tests.py
 ```
 
-Dependencies are installed ad-hoc (no lockfile):
+Install dev dependencies (runtime + mypy + stubs) via the `[dev]` extra:
 
 ```bash
-pip install pyyaml jsonschema mypy types-pyyaml types-jsonschema
+pip install -e ".[dev]"
 ```
 
-The repo is also a pip-installable package (`pyproject.toml` + hatchling). To build:
+To build a distributable:
 
 ```bash
 pip install hatch
@@ -53,7 +53,7 @@ pip install dist/distroscript-*.whl   # installs `distroscript` CLI command
 
 `.github/workflows/python.yml` runs on push/PR touching `src/**`, `tests/**`, or the workflow file:
 
-1. `pip install pyyaml jsonschema mypy types-pyyaml types-jsonschema`
+1. `pip install -e ".[dev]"`
 2. `mypy ./src/distroscript.py`
 3. `python3 ./tests/run_tests.py`
 

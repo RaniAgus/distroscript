@@ -14,6 +14,13 @@ dependencies = [
     "jsonschema",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "mypy",
+    "types-pyyaml",
+    "types-jsonschema",
+]
+
 [project.scripts]
 distroscript = "distroscript:_cli"
 

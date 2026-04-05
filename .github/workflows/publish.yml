@@ -19,7 +19,7 @@ jobs:
           python-version: "3.x"
 
       - name: Install dependencies
-        run: pip install hatch pyyaml jsonschema mypy types-pyyaml types-jsonschema
+        run: pip install -e ".[dev]" hatch
 
       - name: Typecheck
         run: mypy ./src/distroscript.py

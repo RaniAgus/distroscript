@@ -8,10 +8,10 @@
       "program": "${workspaceFolder}/src/distroscript.py",
       "console": "integratedTerminal",
       "args": [
-        "${workspaceFolder}/${input:file}.yml",
+        "${file}",
         "--os",
         "${input:os}"
-      ],
+      ]
     }
   ],
   "inputs": [
@@ -20,29 +20,6 @@
       "description": "Select the target operating system",
       "type": "pickString",
       "options": ["fedora", "ubuntu"]
-    },
-    {
-      "id": "file",
-      "description": "Select the input YAML configuration file",
-      "type": "pickString",
-      "options": [
-        "../linux-utils/packages",
-        "tests/inputs/01-package",
-        "tests/inputs/02-package-default-name",
-        "tests/inputs/03-package-type-only",
-        "tests/inputs/04-pre-post_install",
-        "tests/inputs/05-flags",
-        "tests/inputs/06-depends_on",
-        "tests/inputs/07-snapd",
-        "tests/inputs/08-flatpak",
-        "tests/inputs/09-tarball",
-        "tests/inputs/10-github",
-        "tests/inputs/11-file",
-        "tests/inputs/12-pip",
-        "tests/inputs/13-shell",
-        "tests/inputs/14-zip"
-      ],
-      "default": "../linux-utils/packages",
     }
   ]
 }
