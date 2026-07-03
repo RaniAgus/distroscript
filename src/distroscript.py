@@ -19,7 +19,7 @@ import sys
 from typing import ClassVar, Generic, TypeVar, TypedDict
 import yaml
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 def main(args: argparse.Namespace) -> None:
     """
