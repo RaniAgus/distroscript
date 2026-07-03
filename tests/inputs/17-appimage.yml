@@ -19,3 +19,8 @@ obsidian:
     name: Obsidian
     mime_types:
       - x-scheme-handler/obsidian
+      - application/x-obsidian-vault
+      - type: text/markdown
+        default: true
+      - type: x-scheme-handler/obsidian-dev
+        default: false

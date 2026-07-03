@@ -372,14 +372,16 @@ obsidian:
     icon_name: obsidian
     mime_types:
       - x-scheme-handler/obsidian
+      - type: text/markdown
+        default: true
 ```
 
 AppImages are downloaded to `$HOME/.local/bin/`, a desktop entry is created in
 `$HOME/.local/share/applications/`, and icons are extracted automatically when `icon_name` is specified.
 
-When `mime_types` is provided, the desktop entry advertises those MIME types and the generated script
-registers the AppImage as their default handler. URL scheme handlers such as `x-scheme-handler/obsidian`
-automatically add `%u` to the generated `Exec` command.
+When `mime_types` is provided, the desktop entry advertises those MIME types. If `default` is not set, only scheme
+handler strings register the AppImage as their default handler, other MIME types will not be set as default unless
+`default: true` is explicitly specified.
 
 > [!NOTE]
 > AppImage packages require the `url` field. The `name`, `icon_name`, `categories`, and `mime_types` fields are optional.

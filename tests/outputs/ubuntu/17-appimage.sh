@@ -29,7 +29,7 @@ Type=Application
 Terminal=false
 Categories=Game;Emulator;
 Icon=org.duckstation.DuckStation
-Exec=sh -c "$HOME/.local/bin/DuckStation.AppImage"
+Exec=sh -c '"$HOME/.local/bin/DuckStation.AppImage" "$1"' sh %u
 EOF
 
 (
@@ -52,8 +52,10 @@ StartupNotify=true
 Type=Application
 Terminal=false
 Categories=Application;
-MimeType=x-scheme-handler/obsidian;
+MimeType=x-scheme-handler/obsidian;application/x-obsidian-vault;text/markdown;x-scheme-handler/obsidian-dev;
 Exec=sh -c '"$HOME/.local/bin/Obsidian.AppImage" "$1"' sh %u
 EOF
 
 xdg-mime default Obsidian.desktop x-scheme-handler/obsidian
+
+xdg-mime default Obsidian.desktop text/markdown

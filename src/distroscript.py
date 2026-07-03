@@ -863,7 +863,17 @@ class AppImagePackage(Package, type='appimage'):
     def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         url = item.get('url')
         icon_name = item.get('icon_name')
-        mime_types = item.get('mime_types', [])
+        mime_types = [
+            {
+                'type': mime_type,
+                'default': mime_type.startswith('x-scheme-handler/'),
+            } if isinstance(mime_type, str) else {
+                'type': mime_type.get('type'),
+                'default': mime_type.get('default', mime_type.get('type').startswith('x-scheme-handler/')),
+            }
+            for mime_type in item.get('mime_types', [])
+        ]
+        mime_type_names = [mime_type['type'] for mime_type in mime_types]
 
         if not url:
             raise RuntimeError(f"AppImagePackage requires 'url' field.")
@@ -881,15 +891,6 @@ class AppImagePackage(Package, type='appimage'):
         categories = item.get('categories', 'Application')
         if isinstance(categories, str):
             categories = [categories]
-        has_scheme_handler = any(
-            mime_type.startswith('x-scheme-handler/')
-            for mime_type in mime_types
-        )
-        exec_command = (
-            f"sh -c '\"{destination}\" \"$1\"' sh %u"
-            if has_scheme_handler
-            else f'sh -c "{destination}"'
-        )
 
         # Desktop file creation
         desktop_entry = []
@@ -901,9 +902,9 @@ class AppImagePackage(Package, type='appimage'):
         desktop_entry.append(f'Categories={";".join(categories)};')
         if icon_name:
             desktop_entry.append(f'Icon={icon_name}')
-        if mime_types:
-            desktop_entry.append(f'MimeType={";".join(mime_types)};')
-        desktop_entry.append(f'Exec={exec_command}')
+        if mime_type_names:
+            desktop_entry.append(f'MimeType={";".join(mime_type_names)};')
+        desktop_entry.append(f'Exec=sh -c \'"{destination}" "$1"\' sh %u')
         desktop_entry.append('')
 
         post_install.append(
@@ -914,15 +915,13 @@ class AppImagePackage(Package, type='appimage'):
             )
         )
 
-        if mime_types:
-            post_install.append(
-                ShellCommand(
-                    command='\n'.join(
-                        f'xdg-mime default {desktop_file} {mime_type}'
-                        for mime_type in mime_types
+        for mime_type in mime_types:
+            if mime_type.get('default', False):
+                post_install.append(
+                    ShellCommand(
+                        command=f'xdg-mime default {desktop_file} {mime_type["type"]}'
                     )
                 )
-            )
 
         # Icon extraction if icon_name is provided
         if icon_name:
