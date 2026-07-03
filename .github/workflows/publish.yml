@@ -3,7 +3,7 @@ name: Publish to PyPI
 on:
   push:
     tags:
-      - "v*"
+      - "v*.*.*"
 
 permissions:
   contents: read
@@ -17,6 +17,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
+
+      - name: Set package version from tag
+        run: sed -i "s/^__version__ = .*/__version__ = \"${GITHUB_REF_NAME#v}\"/" src/distroscript.py
 
       - name: Install dependencies
         run: pip install -e ".[dev]" hatch
@@ -48,3 +51,19 @@ jobs:
           path: dist/
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  update-version:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push package version update
+        run: |
+          sed -i "s/^__version__ = .*/__version__ = \"${GITHUB_REF_NAME#v}\"/" src/distroscript.py
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "Set version to ${GITHUB_REF_NAME#v}"
+          git push origin HEAD:main
