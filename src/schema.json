@@ -544,6 +544,12 @@
             }
           ]
         },
+        "mime_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "depends_on": {
           "$ref": "#/definitions/dependencyList"
         },

@@ -35,6 +35,28 @@ Install dev dependencies with:
 pip install -e ".[dev]"
 ```
 
+- MacOS
+
+```bash
+brew install python3 pyyaml jsonschema
+```
+
+## Schema Validation
+
+The configuration files are validated against a JSON Schema specification (`src/schema.json`)
+that defines the structure and constraints for all supported package types and their properties.
+
+The validation happens automatically after reading the YAML file and before processing begins.
+If validation fails, the script will exit with a detailed error message showing:
+- The path to the invalid field
+- A description of what's wrong
+
+This helps catch configuration errors early, such as:
+- Missing required fields (e.g., `url` for tar packages)
+- Invalid package type names
+- Incorrect property types (e.g., string instead of array)
+- Unsupported properties for a given package type
+
 ## Basic Usage
 
 The YAML configuration file should defines the packages to be installed as a
@@ -343,21 +365,24 @@ oh-my-zsh:
 **AppImage:**
 
 ```yaml
-duckstation:
+obsidian:
   - type: appimage
-    url: https://github.com/stenzek/duckstation/releases/download/latest/DuckStation-x64.AppImage
-    name: DuckStation
-    icon_name: org.duckstation.DuckStation
-    categories:
-      - Game
-      - Emulator
+    url: https://github.com/obsidianmd/obsidian-releases/releases/download/v1.8.10/Obsidian-1.8.10.AppImage
+    name: Obsidian
+    icon_name: obsidian
+    mime_types:
+      - x-scheme-handler/obsidian
 ```
 
 AppImages are downloaded to `$HOME/.local/bin/`, a desktop entry is created in
 `$HOME/.local/share/applications/`, and icons are extracted automatically when `icon_name` is specified.
 
+When `mime_types` is provided, the desktop entry advertises those MIME types and the generated script
+registers the AppImage as their default handler. URL scheme handlers such as `x-scheme-handler/obsidian`
+automatically add `%u` to the generated `Exec` command.
+
 > [!NOTE]
-> AppImage packages require the `url` field. The `name`, `icon_name`, and `categories` fields are optional.
+> AppImage packages require the `url` field. The `name`, `icon_name`, `categories`, and `mime_types` fields are optional.
 > The `name` field defaults to the package name, `icon_name` enables desktop icon extraction when provided,
 > and `categories` defaults to "Application".
 

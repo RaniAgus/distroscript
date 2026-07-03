@@ -12,3 +12,10 @@ duckstation:
     categories:
       - Game
       - Emulator
+
+obsidian:
+  - type: appimage
+    url: https://github.com/obsidianmd/obsidian-releases/releases/download/v1.8.10/Obsidian-1.8.10.AppImage
+    name: Obsidian
+    mime_types:
+      - x-scheme-handler/obsidian

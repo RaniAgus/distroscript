@@ -39,3 +39,21 @@ EOF
   cp -rv squashfs-root/usr/share/icons/hicolor/* "$HOME/.local/share/icons/hicolor/" 2>/dev/null || true
   rm -rf "$TMP_DIR"
 )
+
+mkdir -p "$(dirname "$HOME/.local/bin/Obsidian.AppImage")"
+curl -fsSL "https://github.com/obsidianmd/obsidian-releases/releases/download/v1.8.10/Obsidian-1.8.10.AppImage" -o "$HOME/.local/bin/Obsidian.AppImage" > /dev/null
+chmod +x "$HOME/.local/bin/Obsidian.AppImage"
+
+mkdir -p "$(dirname "$HOME/.local/share/applications/Obsidian.desktop")"
+tee "$HOME/.local/share/applications/Obsidian.desktop" <<'EOF'
+[Desktop Entry]
+Name=Obsidian
+StartupNotify=true
+Type=Application
+Terminal=false
+Categories=Application;
+MimeType=x-scheme-handler/obsidian;
+Exec=sh -c '"$HOME/.local/bin/Obsidian.AppImage" "$1"' sh %u
+EOF
+
+xdg-mime default Obsidian.desktop x-scheme-handler/obsidian

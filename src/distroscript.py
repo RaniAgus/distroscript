@@ -863,6 +863,7 @@ class AppImagePackage(Package, type='appimage'):
     def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         url = item.get('url')
         icon_name = item.get('icon_name')
+        mime_types = item.get('mime_types', [])
 
         if not url:
             raise RuntimeError(f"AppImagePackage requires 'url' field.")
@@ -876,6 +877,19 @@ class AppImagePackage(Package, type='appimage'):
         # Set up post_install commands for desktop integration
         app_name = item.get('name', name)
         destination = f"$HOME/.local/bin/{app_name}.AppImage"
+        desktop_file = f"{app_name}.desktop"
+        categories = item.get('categories', 'Application')
+        if isinstance(categories, str):
+            categories = [categories]
+        has_scheme_handler = any(
+            mime_type.startswith('x-scheme-handler/')
+            for mime_type in mime_types
+        )
+        exec_command = (
+            f"sh -c '\"{destination}\" \"$1\"' sh %u"
+            if has_scheme_handler
+            else f'sh -c "{destination}"'
+        )
 
         # Desktop file creation
         desktop_entry = []
@@ -884,19 +898,31 @@ class AppImagePackage(Package, type='appimage'):
         desktop_entry.append('StartupNotify=true')
         desktop_entry.append('Type=Application')
         desktop_entry.append('Terminal=false')
-        desktop_entry.append(f'Categories={";".join(item.get('categories', 'Application'))};')
+        desktop_entry.append(f'Categories={";".join(categories)};')
         if icon_name:
             desktop_entry.append(f'Icon={icon_name}')
-        desktop_entry.append(f'Exec=sh -c "{destination}"')
+        if mime_types:
+            desktop_entry.append(f'MimeType={";".join(mime_types)};')
+        desktop_entry.append(f'Exec={exec_command}')
         desktop_entry.append('')
 
         post_install.append(
             TeeCommand(
                 '\n'.join(desktop_entry),
-                destination=f"$HOME/.local/share/applications/{app_name}.desktop",
+                destination=f"$HOME/.local/share/applications/{desktop_file}",
                 mkdir=True,
             )
         )
+
+        if mime_types:
+            post_install.append(
+                ShellCommand(
+                    command='\n'.join(
+                        f'xdg-mime default {desktop_file} {mime_type}'
+                        for mime_type in mime_types
+                    )
+                )
+            )
 
         # Icon extraction if icon_name is provided
         if icon_name:
