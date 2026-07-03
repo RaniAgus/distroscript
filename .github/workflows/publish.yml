@@ -60,10 +60,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Push package version update
+      - name: Prepare for next development iteration
         run: |
           sed -i "s/^__version__ = .*/__version__ = \"${GITHUB_REF_NAME#v}\"/" src/distroscript.py
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -am "Set version to ${GITHUB_REF_NAME#v}"
+          git commit -am "Prepare for next development iteration"
           git push origin HEAD:main
