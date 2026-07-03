@@ -16,7 +16,7 @@ import json
 from jsonschema import validate, ValidationError
 import os
 import sys
-from typing import ClassVar, Generic, TypeVar
+from typing import ClassVar, Generic, TypeVar, TypedDict
 import yaml
 
 __version__ = "0.2.0"
@@ -188,6 +188,11 @@ PLATFORMS = {
 ### Package Implementations ###
 
 T = TypeVar('T', bound='Package')
+
+
+class MimeType(TypedDict):
+    type: str
+    default: bool
 
 @dataclass(frozen=True)
 class Package(ABC, Generic[T]):
@@ -863,16 +868,19 @@ class AppImagePackage(Package, type='appimage'):
     def create(cls, name: str, item: dict, platform: Platform) -> list[Package]:
         url = item.get('url')
         icon_name = item.get('icon_name')
-        mime_types = [
-            {
-                'type': mime_type,
-                'default': mime_type.startswith('x-scheme-handler/'),
-            } if isinstance(mime_type, str) else {
-                'type': mime_type.get('type'),
-                'default': mime_type.get('default', mime_type.get('type').startswith('x-scheme-handler/')),
-            }
-            for mime_type in item.get('mime_types', [])
-        ]
+        mime_types: list[MimeType] = []
+        for mime_type in item.get('mime_types', []):
+            if isinstance(mime_type, str):
+                mime_types.append({
+                    'type': mime_type,
+                    'default': mime_type.startswith('x-scheme-handler/'),
+                })
+            else:
+                mime_type_name = mime_type.get('type')
+                mime_types.append({
+                    'type': mime_type_name,
+                    'default': mime_type.get('default', mime_type_name.startswith('x-scheme-handler/')),
+                })
         mime_type_names = [mime_type['type'] for mime_type in mime_types]
 
         if not url:
